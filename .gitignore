@@ -1,0 +1,15 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+data/
+logs/
+.playwright-mcp/
+test-results/
+playwright-report/
+
+# Claude Code / AI assistant files: never commit
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json
