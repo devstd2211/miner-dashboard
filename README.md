@@ -1,105 +1,136 @@
 # Miner Dashboard
 
-Локальный дашборд для домашних Bitcoin-майнеров на прошивках AxeOS (Bitaxe) и NerdQAxe.
-Next.js (App Router), без базы данных, авторизации и Docker. Только чтение: настройки майнеров
-не меняются.
+A local dashboard for home Bitcoin miners running AxeOS (Bitaxe) and NerdQAxe firmware.
+Next.js (App Router), no database, no auth, no Docker. Read-only: it never changes miner settings.
 
-![Дашборд: сводка и карточки трёх майнеров](docs/dashboard.png)
+![Dashboard: summary and cards for three miners](docs/dashboard.png)
 
 <table>
   <tr>
-    <td width="60%"><img src="docs/card-nerdoctaxe.png" alt="Карточка NerdOctaxe с таблицей чипов"></td>
-    <td width="40%"><img src="docs/mobile.png" alt="Мобильный вид"></td>
+    <td width="60%"><img src="docs/card-nerdoctaxe.png" alt="NerdOctaxe card with per-chip table"></td>
+    <td width="40%"><img src="docs/mobile.png" alt="Mobile view"></td>
   </tr>
   <tr>
-    <td>Карточка майнера: хешрейт против ожидаемого, график за 24 ч, питание, температуры,
-    пул и ошибки по каждому чипу (NerdQAxe).</td>
-    <td>На телефоне карточки идут в одну колонку.</td>
+    <td>Miner card: hashrate vs expected, 24 h chart, power, temperatures, pool and per-chip
+    error rate (NerdQAxe firmware).</td>
+    <td>On a phone the cards stack in a single column.</td>
   </tr>
 </table>
 
-## Как это работает
+## Supported miners
 
-- **Автопоиск.** Сервер определяет локальную подсеть /24 по сетевым интерфейсам. Виртуальные
-  адаптеры (Hyper-V `vEthernet`, WSL, VirtualBox, VPN) пропускаются. Если подходящих
-  интерфейсов нет, используется `192.168.68.0/24`. Все 254 адреса опрашиваются через
-  `GET /api/system/info`: не больше 32 запросов одновременно, таймаут 1.5 с. Майнером считается
-  ответ с `hashRate` и `ASICModel`. Если у майнера отвечает `/api/v2/dashboard`, ему присваивается
-  тип `nerdqaxe`, иначе `axeos`.
-- **Список майнеров** лежит в `data/miners.json`. Майнер идентифицируется по MAC (`macAddr`),
-  а если MAC нет, то по hostname. Поэтому при смене IP запись обновляется, а не дублируется.
-- **Когда запускается скан:** при старте, если `data/miners.json` нет; по кнопке **Rescan**;
-  автоматически, если какой-то майнер не отвечает дольше минуты (не чаще раза в 5 минут),
-  чтобы найти его на новом DHCP-адресе. Если на старом IP теперь отвечает другое устройство,
-  его данные не показываются под чужим именем.
-- **Опрос.** Сервер опрашивает майнеры каждые 10 с, браузер к ним напрямую не ходит.
-  История хешрейта за 24 ч хранится в памяти и пропадает при перезапуске.
-- **API:** `GET /api/miners` отдаёт текущее состояние и историю, сжатую до 5-минутных точек.
-  `POST /api/rescan` запускает скан и ждёт его завершения (около 10 с).
-- **Статус:** майнер помечается офлайн, если не отвечал больше 30 с.
+Anything that exposes the AxeOS HTTP API (`GET /api/system/info`, no auth):
 
-## Установка и сборка
+- **Bitaxe** (stock AxeOS): Gamma, Supra, Ultra, etc.
+- **NerdQAxe / NerdQAxe++ / NerdOctaxe** (NerdQAxe firmware). These also expose
+  `/api/v2/dashboard`, which adds per-chip hashrate and error stats, input current limits,
+  pool connection state and more.
 
-Нужен Node.js 20+ (проверено на 24).
+Tested with a NerdOctaxe (8× BM1370) and a NerdQAxe++ (4× BM1370) on NerdQAxe v1.1.1,
+and a Bitaxe Gamma 601 on AxeOS v2.15.
+
+## Features
+
+- Summary: total hashrate, total power, overall J/TH, miners online, best difficulty
+  (all-time and session).
+- A card per miner:
+  - online/offline status (offline after 30 s without a response)
+  - current and 1 h hashrate vs expected (`frequency × smallCoreCount × asicCount / 1000`)
+  - power, input voltage, current (highlighted above 90% of the max current), J/TH
+  - ASIC/VRM temperature, fans
+  - frequency, core voltage (set / actual)
+  - pool: host, connected, fallback in use, accepted/rejected shares and reject %, ping
+  - best difficulty, uptime
+  - hashrate chart for the last 24 h (plain SVG)
+  - per-chip table (NerdQAxe firmware): hashrate and error % per chip, colored
+    green (0%), yellow (≤ 0.5%) or red (> 0.5%)
+
+## How it works
+
+- **Discovery.** The server detects the local /24 subnet(s) from the network interfaces,
+  skipping virtual adapters (Hyper-V `vEthernet`, WSL, VirtualBox, VPNs). If none qualify,
+  it falls back to `192.168.68.0/24` (the author's network; override it with `SCAN_SUBNETS`).
+  All 254 addresses are probed with `GET /api/system/info`, at most 32 requests in parallel
+  with a 1.5 s timeout. A response with `hashRate` and `ASICModel` counts as a miner. If
+  `/api/v2/dashboard` also answers, the miner is typed `nerdqaxe`, otherwise `axeos`.
+- **Miner list** is stored in `data/miners.json`. Miners are identified by MAC address
+  (`macAddr`), falling back to hostname, so a new DHCP address updates the existing entry
+  instead of creating a duplicate.
+- **When it scans:** on startup if `data/miners.json` doesn't exist; when you press **Rescan**;
+  and automatically when a miner hasn't answered for over a minute (at most once every
+  5 minutes), to find it at its new address. If another device now answers on a miner's old IP,
+  its data is not shown under that miner's name.
+- **Polling.** Only the server talks to the miners (no CORS issues), every 10 s. The 24 h
+  hashrate history is kept in memory (ring buffer) and is lost on restart.
+- **API:** `GET /api/miners` returns the current state plus history downsampled to 5-minute
+  points. `POST /api/rescan` runs a scan and waits for it to finish (about 10 s per /24).
+- **Units.** The two endpoints disagree on units (e.g. voltage in mV vs V, current in mA vs A),
+  and stock Bitaxe reports ASIC core-rail current rather than input current. Everything is
+  normalized in `lib/miner-api.ts`.
+
+## Install and build
+
+Requires Node.js 20+ (tested on 24).
 
 ```powershell
-cd E:\src\miner.dashboard
+git clone https://github.com/devstd2211/miner-dashboard.git
+cd miner-dashboard
 npm install
 npm run build
 npm start          # http://localhost:3100
 ```
 
-Для разработки: `npm run dev` (тоже порт 3100).
+For development: `npm run dev` (also on port 3100).
 
-> В проекте есть `.npmrc` с `registry=https://registry.npmjs.org/`: глобальный npm-конфиг на этой
-> машине указывает на приватный фид, который не отдаёт публичные пакеты.
+> The repo ships an `.npmrc` that pins the public npm registry (`https://registry.npmjs.org/`),
+> so a global npm config pointing to a private feed doesn't break `npm install`.
 
-## Тесты (Playwright)
+## Tests (Playwright)
 
-E2E-тесты в `tests/` работают с реальными майнерами в сети. Если дашборд уже запущен
-(например, через автозапуск), тесты используют его, иначе сами запускают `npm start`.
+The e2e tests in `tests/` run against real miners on your network. If the dashboard is already
+running (e.g. via autostart), they use it, otherwise they start `npm start` themselves.
 
 ```powershell
-npx playwright install chromium   # один раз
+npx playwright install chromium   # once
 npm run test:e2e
 ```
 
-Что проверяется:
-- API: найдены оба NerdQAxe (8 и 4 чипа) и Bitaxe; дубликатов нет; все майнеры онлайн.
-  Единицы правдоподобны: напряжение в вольтах, хешрейт за час в пределах 70–130% от ожидаемого.
-- UI: страница рендерится без ошибок в консоли, есть сводка и 3 карточки, у NerdQAxe есть
-  таблицы чипов с цветом ошибок.
-- Rescan: кнопка запускает скан, снова находятся все 3 майнера.
+What they check:
+- API: both NerdQAxe miners (8 and 4 chips) and the Bitaxe are found, no duplicates, all online.
+  Units are sane: voltage in volts, 1 h hashrate within 70–130% of expected.
+- UI: the page renders without console errors, shows the summary and 3 cards, and the NerdQAxe
+  cards have colored per-chip tables.
+- Rescan: the button runs a scan and all 3 miners are found again.
 
-Скриншот страницы сохраняется в `test-results/dashboard.png`. Тесты рассчитаны на текущий
-набор майнеров: если он изменится, поправьте ожидания в `tests/dashboard.spec.ts`.
+A screenshot of the page is saved to `test-results/dashboard.png`. The expectations are written
+for the author's three miners: adjust them at the top of `tests/dashboard.spec.ts` for your setup.
 
-## Автозапуск в Windows
+## Windows autostart
 
-Скрипт регистрирует задачу `MinerDashboard` в Task Scheduler. Она запускается **при загрузке
-Windows** (через 30 с, чтобы успела подняться сеть), даже если никто не вошёл в систему, а также
-при входе пользователя. Задача работает от вашей учётной записи в режиме «выполнять вне
-зависимости от входа пользователя» (S4U): пароль не хранится, у сервера обычные права, без
-администратора. Сервер работает в фоновой сессии 0, поэтому окна нет вообще.
-`scripts\run-hidden.vbs` перезапускает сервер через 10 с, если тот упал. Лог пишется в
-`logs\server.log` (при размере больше 10 МБ старый лог сохраняется в `server.old.log`).
+The script registers a Task Scheduler task named `MinerDashboard`. It starts **at Windows
+startup** (with a 30 s delay so the network is up), even if nobody logs in, and also at user
+logon. The task runs under your account in "run whether the user is logged on or not" mode
+(S4U): no password is stored and the server runs with normal, non-admin rights. It runs in the
+background session 0, so no window ever appears. `scripts\run-hidden.vbs` restarts the server
+10 s after it exits or crashes. Output goes to `logs\server.log` (over 10 MB, the previous log is
+kept as `server.old.log`).
 
-Для регистрации такой задачи нужны права администратора: оба скрипта сами запрашивают их
-через UAC.
+Registering this kind of task requires admin rights: both scripts request elevation via UAC
+themselves.
 
-Включить (сначала обязательно сделайте `npm run build`):
+Enable (run `npm run build` first):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\install-autostart.ps1
 ```
 
-Выключить (удаляет задачу и останавливает сервер):
+Disable (removes the task and stops the server):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\uninstall-autostart.ps1
 ```
 
-После обновления кода остановите сервер, пересоберите и запустите снова:
+After updating the code, stop the server, rebuild and start it again:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\uninstall-autostart.ps1
@@ -107,27 +138,27 @@ npm run build
 powershell -ExecutionPolicy Bypass -File scripts\install-autostart.ps1
 ```
 
-## Данные и настройка
+## Data and configuration
 
-- `data/miners.json` — список найденных майнеров (`id`, `ip`, `hostname`, `mac`, `type`,
-  `lastSeen`). Файл можно удалить, тогда при следующем старте выполнится полный скан.
-  Майнер, который вы убрали из сети навсегда, удаляется из этого файла вручную
-  (при остановленном сервере).
-- `SCAN_SUBNETS`: необязательная переменная окружения, если автоопределение подсети ошибается.
-  Пример: `SCAN_SUBNETS=192.168.68,192.168.1`.
+- `data/miners.json`: the discovered miners (`id`, `ip`, `hostname`, `mac`, `type`, `lastSeen`).
+  Delete it to force a full scan on the next start. To forget a miner you've retired, remove
+  it from this file while the server is stopped.
+- `SCAN_SUBNETS`: optional environment variable for when subnet detection gets it wrong.
+  Example: `SCAN_SUBNETS=192.168.68,192.168.1`.
 
-## Структура
+## Project layout
 
 ```
-lib/miner-api.ts   запросы к майнерам и нормализация JSON (единицы: GH/s, W, V, A, °C, MHz, mV)
-lib/scanner.ts     определение подсетей и сканирование
-lib/store.ts       состояние, miners.json, кольцевой буфер истории, фоновый опрос
-instrumentation.ts запуск опроса при старте сервера
+lib/miner-api.ts   miner HTTP requests and JSON normalization (GH/s, W, V, A, °C, MHz, mV)
+lib/scanner.ts     subnet detection and LAN scan
+lib/store.ts       state, miners.json, history ring buffer, background poller
+instrumentation.ts starts the poller when the server starts
 app/api/*          GET /api/miners, POST /api/rescan
-app/page.tsx       UI (сводка + карточки), components/ — карточка, график
-scripts/           автозапуск
+app/page.tsx       UI (summary + cards); components/: miner card, sparkline
+scripts/           Windows autostart
+tests/             Playwright e2e tests
 ```
 
-## Лицензия
+## License
 
-MIT, см. [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
