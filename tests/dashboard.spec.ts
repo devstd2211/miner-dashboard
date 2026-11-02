@@ -48,6 +48,12 @@ test("UI: dashboard renders summary, cards and chip tables without errors", asyn
   await expect(page.locator("table")).toHaveCount(2);
   await expect(page.locator("table tbody tr")).toHaveCount(12);
 
+  // Each card links to the miner's own web UI at its IP.
+  const data: MinersResponse = await (await page.request.get("/api/miners")).json();
+  for (const m of data.miners) {
+    await expect(page.locator(`a[href="http://${m.ip}/"]`, { hasText: "UI ↗" })).toHaveAttribute("target", "_blank");
+  }
+
   // Error % cells are colored green / amber / red.
   const colors = await page.locator("table tbody td:last-child").evaluateAll((tds) =>
     tds.map((td) => td.className.match(/text-(emerald|amber|red)-400/)?.[1]),

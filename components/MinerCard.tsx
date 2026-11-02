@@ -73,11 +73,22 @@ export function MinerCard({ m, now }: { m: MinerView; now: number }) {
           {s?.version && ` · ${s.version}`}
         </div>
       </div>
-      {!m.online && (
-        <span className="shrink-0 rounded bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-400">
-          offline · {fmtDuration(ago)}
-        </span>
-      )}
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <a
+          href={`http://${m.ip}/`}
+          target="_blank"
+          rel="noreferrer"
+          title={`Open the miner's own dashboard (${m.ip})`}
+          className="rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-300 hover:border-amber-500/60 hover:text-amber-400"
+        >
+          {m.type === "nerdqaxe" ? "NerdQAxe UI" : "AxeOS UI"} ↗
+        </a>
+        {!m.online && (
+          <span className="rounded bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-400">
+            offline · {fmtDuration(ago)}
+          </span>
+        )}
+      </div>
     </div>
   );
 

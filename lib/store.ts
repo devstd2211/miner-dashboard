@@ -1,45 +1,28 @@
 // In-memory state of all miners: list (persisted to data/miners.json), latest readings,
-// 24 h hashrate history (ring buffers, not persisted) and the background poller.
+// 24 h hashrate history (in memory, not persisted) and the background poller.
 
 import fs from "node:fs/promises";
 import path from "node:path";
 import { readMiner } from "./miner-api";
 import { detectSubnets, scanNetwork } from "./scanner";
+import { downsample, HISTORY_WINDOW_MS } from "./history";
 import type { HistoryPoint, MinerRecord, MinerSnapshot, MinersResponse, ScanStatus } from "./types";
 
 const DATA_FILE = path.join(process.cwd(), "data", "miners.json");
 const POLL_INTERVAL_MS = 10_000;
 const OFFLINE_AFTER_MS = 30_000;
-const HISTORY_SIZE = (24 * 3600 * 1000) / POLL_INTERVAL_MS; // 8640 points = 24 h
-const HISTORY_POINTS_OUT = 288; // downsampled history sent to the browser (5 min buckets)
 const SAVE_EVERY_MS = 60_000;
 // If a miner is offline this long, rescan automatically (it may have a new DHCP address)...
 const AUTO_RESCAN_OFFLINE_MS = 60_000;
 // ...but not more often than this.
 const AUTO_RESCAN_MIN_INTERVAL_MS = 5 * 60_000;
 
-class RingBuffer<T> {
-  private buf: T[] = [];
-  private start = 0;
-  constructor(private capacity: number) {}
-  push(item: T) {
-    if (this.buf.length < this.capacity) this.buf.push(item);
-    else {
-      this.buf[this.start] = item;
-      this.start = (this.start + 1) % this.capacity;
-    }
-  }
-  toArray(): T[] {
-    return [...this.buf.slice(this.start), ...this.buf.slice(0, this.start)];
-  }
-}
-
 interface MinerState {
   record: MinerRecord;
   snapshot?: MinerSnapshot;
   lastOkAt?: number; // ms; only successful polls since server start
   lastError?: string;
-  history: RingBuffer<HistoryPoint>;
+  history: HistoryPoint[]; // oldest first, only the last 24 h
 }
 
 interface Store {
@@ -64,7 +47,7 @@ const store: Store = (g.__minerStore ??= {
 function addRecord(record: MinerRecord) {
   const existing = store.miners.get(record.id);
   if (existing) existing.record = { ...existing.record, ...record };
-  else store.miners.set(record.id, { record, history: new RingBuffer(HISTORY_SIZE) });
+  else store.miners.set(record.id, { record, history: [] });
 }
 
 async function load(): Promise<boolean> {
@@ -122,6 +105,7 @@ async function pollOne(m: MinerState) {
     m.record.lastSeen = new Date(now).toISOString();
     m.record.hostname = snapshot.hostname || m.record.hostname;
     m.history.push({ t: now, hr: snapshot.hashRate });
+    pruneHistory(m, now);
   } catch (e) {
     m.lastError = e instanceof Error ? e.message : String(e);
   }
@@ -146,6 +130,14 @@ async function tick() {
   }
 }
 
+/** Drop points older than 24 h. Pruning by time, not by count, matters after sleep/offline gaps. */
+function pruneHistory(m: MinerState, now: number) {
+  const cutoff = now - HISTORY_WINDOW_MS;
+  let i = 0;
+  while (i < m.history.length && m.history[i].t < cutoff) i++;
+  if (i) m.history.splice(0, i);
+}
+
 const lastSeenMs = (m: MinerState) => m.lastOkAt ?? (Date.parse(m.record.lastSeen) || 0);
 
 /** Starts the background poller once per process. Safe to call many times. */
@@ -163,31 +155,16 @@ export function ensureStarted() {
     });
 }
 
-/** Average the history into at most `points` buckets. */
-function downsample(history: HistoryPoint[], points: number): HistoryPoint[] {
-  if (history.length <= points) return history;
-  const size = history.length / points;
-  const out: HistoryPoint[] = [];
-  for (let i = 0; i < points; i++) {
-    const bucket = history.slice(Math.floor(i * size), Math.floor((i + 1) * size));
-    if (bucket.length === 0) continue;
-    out.push({
-      t: bucket[bucket.length - 1].t,
-      hr: bucket.reduce((s, p) => s + p.hr, 0) / bucket.length,
-    });
-  }
-  return out;
-}
-
 export function getState(): MinersResponse {
   const now = Date.now();
+  store.miners.forEach((m) => pruneHistory(m, now)); // a miner that stopped answering ages out too
   const miners = [...store.miners.values()]
     .map((m) => ({
       ...m.record,
       online: m.lastOkAt !== undefined && now - m.lastOkAt <= OFFLINE_AFTER_MS,
       lastError: m.lastError,
       snapshot: m.snapshot,
-      history: downsample(m.history.toArray(), HISTORY_POINTS_OUT),
+      history: downsample(m.history),
     }))
     .sort((a, b) => a.hostname.localeCompare(b.hostname)); // stable order, cards do not jump
   return { now, miners, scan: store.scan };

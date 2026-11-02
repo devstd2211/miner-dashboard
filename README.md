@@ -41,7 +41,9 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   - frequency, core voltage (set / actual)
   - pool: host, connected, fallback in use, accepted/rejected shares and reject %, ping
   - best difficulty, uptime
-  - hashrate chart for the last 24 h (plain SVG)
+  - link to the miner's own web UI (AxeOS / NerdQAxe), opens in a new tab
+  - hashrate chart for the last 24 h (plain SVG); periods with no data (PC asleep, miner
+    offline) are shown as a grey "no data" band instead of a line across the gap
   - per-chip table (NerdQAxe firmware): hashrate and error % per chip, colored
     green (0%), yellow (≤ 0.5%) or red (> 0.5%)
 
@@ -61,9 +63,10 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   5 minutes), to find it at its new address. If another device now answers on a miner's old IP,
   its data is not shown under that miner's name.
 - **Polling.** Only the server talks to the miners (no CORS issues), every 10 s. The 24 h
-  hashrate history is kept in memory (ring buffer) and is lost on restart.
-- **API:** `GET /api/miners` returns the current state plus history downsampled to 5-minute
-  points. `POST /api/rescan` runs a scan and waits for it to finish (about 10 s per /24).
+  hashrate history is kept in memory (points older than 24 h are dropped) and is lost on restart.
+  While the PC sleeps nothing is polled, so the chart shows a gap for that time.
+- **API:** `GET /api/miners` returns the current state plus history averaged into 5-minute
+  slots (slots with no samples are left out, so gaps stay gaps). `POST /api/rescan` runs a scan and waits for it to finish (about 10 s per /24).
 - **Units.** The two endpoints disagree on units (e.g. voltage in mV vs V, current in mA vs A),
   and stock Bitaxe reports ASIC core-rail current rather than input current. Everything is
   normalized in `lib/miner-api.ts`.
@@ -151,7 +154,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install-autostart.ps1
 ```
 lib/miner-api.ts   miner HTTP requests and JSON normalization (GH/s, W, V, A, °C, MHz, mV)
 lib/scanner.ts     subnet detection and LAN scan
-lib/store.ts       state, miners.json, history ring buffer, background poller
+lib/store.ts       state, miners.json, 24 h history, background poller
+lib/history.ts     history downsampling and gap detection for the chart
 instrumentation.ts starts the poller when the server starts
 app/api/*          GET /api/miners, POST /api/rescan
 app/page.tsx       UI (summary + cards); components/: miner card, sparkline
