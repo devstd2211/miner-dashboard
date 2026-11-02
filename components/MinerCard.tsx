@@ -1,5 +1,6 @@
-import type { ChipStat, MinerView } from "@/lib/types";
-import { fmt, fmtDiff, fmtDuration, fmtHash, jPerTh } from "@/lib/format";
+import type { ChipStat, MinerView, NonceEvent } from "@/lib/types";
+import { fmt, fmtDiff, fmtDuration, fmtHash, fmtHashes, jPerTh } from "@/lib/format";
+import { NonceFeed } from "./NonceFeed";
 import { Sparkline } from "./Sparkline";
 
 function Stat({ label, value, warn }: { label: string; value: React.ReactNode; warn?: boolean }) {
@@ -56,39 +57,46 @@ function ChipTable({ chips }: { chips: ChipStat[] }) {
   );
 }
 
-export function MinerCard({ m, now }: { m: MinerView; now: number }) {
+export function MinerCard({ m, now, feed }: { m: MinerView; now: number; feed?: NonceEvent[] }) {
   const s = m.snapshot;
   const ago = Math.round((now - Date.parse(m.lastSeen)) / 1000);
 
   const header = (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${m.online ? "bg-emerald-400" : "bg-red-500"}`} />
-          <h2 className="truncate text-lg font-semibold">{m.hostname}</h2>
+    <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${m.online ? "bg-emerald-400" : "bg-red-500"}`} />
+            <h2 className="truncate text-lg font-semibold">{m.hostname}</h2>
+          </div>
+          <div className="mt-0.5 text-xs text-zinc-500">
+            <a href={`http://${m.ip}`} target="_blank" rel="noreferrer" className="hover:text-zinc-300">{m.ip}</a>
+            {s && ` · ${s.deviceModel ?? ""} ${s.asicCount ?? 1}× ${s.asicModel}`}
+            {s?.version && ` · ${s.version}`}
+          </div>
         </div>
-        <div className="mt-0.5 text-xs text-zinc-500">
-          <a href={`http://${m.ip}`} target="_blank" rel="noreferrer" className="hover:text-zinc-300">{m.ip}</a>
-          {s && ` · ${s.deviceModel ?? ""} ${s.asicCount ?? 1}× ${s.asicModel}`}
-          {s?.version && ` · ${s.version}`}
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <a
+            href={`http://${m.ip}/`}
+            target="_blank"
+            rel="noreferrer"
+            title={`Open the miner's own dashboard (${m.ip})`}
+            className="rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-300 hover:border-amber-500/60 hover:text-amber-400"
+          >
+            {m.type === "nerdqaxe" ? "NerdQAxe UI" : "AxeOS UI"} ↗
+          </a>
+          {!m.online && (
+            <span className="rounded bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-400">
+              offline · {fmtDuration(ago)}
+            </span>
+          )}
         </div>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
-        <a
-          href={`http://${m.ip}/`}
-          target="_blank"
-          rel="noreferrer"
-          title={`Open the miner's own dashboard (${m.ip})`}
-          className="rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-300 hover:border-amber-500/60 hover:text-amber-400"
-        >
-          {m.type === "nerdqaxe" ? "NerdQAxe UI" : "AxeOS UI"} ↗
-        </a>
-        {!m.online && (
-          <span className="rounded bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-400">
-            offline · {fmtDuration(ago)}
-          </span>
-        )}
-      </div>
+      {m.online && (
+        <div className="mt-1.5">
+          <NonceFeed events={feed} chips={s?.asicCount ?? 1} />
+        </div>
+      )}
     </div>
   );
 
@@ -106,6 +114,9 @@ export function MinerCard({ m, now }: { m: MinerView; now: number }) {
   const highCurrent = s.currentA !== undefined && s.currentAMax ? s.currentA > s.currentAMax * 0.9 : false;
   const total = s.pool.accepted + s.pool.rejected;
   const rejPct = total ? (s.pool.rejected / total) * 100 : 0;
+  // NerdQAxe has no hash counter: estimate from the average hashrate since boot.
+  const avgHr = (s.uptimeSeconds ?? 0) >= 86400 ? s.hashRate1d : s.hashRate1h;
+  const hashesSinceBoot = s.uptimeSeconds && avgHr ? avgHr * 1e9 * s.uptimeSeconds : undefined;
 
   return (
     <div className={`rounded-xl border bg-zinc-900/60 p-4 ${m.online ? "border-zinc-800" : "border-red-900/60 opacity-70"}`}>
@@ -117,6 +128,11 @@ export function MinerCard({ m, now }: { m: MinerView; now: number }) {
           <div className="text-3xl font-semibold tabular-nums">{fmtHash(s.hashRate)}</div>
           <div className="text-xs text-zinc-500">
             1h {fmtHash(s.hashRate1h)} · expected {fmtHash(s.expectedHashRate)}
+          </div>
+          <div className="mt-0.5 text-xs tabular-nums text-zinc-400" title="shares since boot: accepted / rejected">
+            shares <span className="text-emerald-400">↑ {s.pool.accepted.toLocaleString("en-US")}</span>
+            {" · "}
+            <span className={rejPct > 1 ? "text-red-400" : "text-zinc-400"}>↓ {s.pool.rejected.toLocaleString("en-US")}</span>
           </div>
         </div>
         <div className="text-right tabular-nums">
@@ -177,6 +193,8 @@ export function MinerCard({ m, now }: { m: MinerView; now: number }) {
           <Stat label="Best diff (session)" value={fmtDiff(s.bestSessionDiff)} />
           <Stat label="Best diff (all-time)" value={fmtDiff(s.bestDiff)} />
           <Stat label="Uptime" value={fmtDuration(s.uptimeSeconds)} />
+          <Stat label="Hashes (since boot)" value={hashesSinceBoot ? `≈ ${fmtHashes(hashesSinceBoot)}` : "—"} />
+          {s.totalHashes !== undefined && <Stat label="Hashes (lifetime)" value={fmtHashes(s.totalHashes)} />}
         </Section>
 
         {s.chips && s.chips.length > 0 && <ChipTable chips={s.chips} />}

@@ -6,6 +6,7 @@ import path from "node:path";
 import { readMiner } from "./miner-api";
 import { detectSubnets, scanNetwork } from "./scanner";
 import { downsample, HISTORY_WINDOW_MS } from "./history";
+import { ensureFeed } from "./share-feed";
 import type { HistoryPoint, MinerRecord, MinerSnapshot, MinersResponse, ScanStatus } from "./types";
 
 const DATA_FILE = path.join(process.cwd(), "data", "miners.json");
@@ -113,6 +114,7 @@ async function pollOne(m: MinerState) {
 
 async function pollAll() {
   await Promise.all([...store.miners.values()].map(pollOne));
+  store.miners.forEach((m) => ensureFeed(m.record.id, m.record.ip));
   if (Date.now() - store.lastSaveAt > SAVE_EVERY_MS) await save().catch(() => {});
 }
 

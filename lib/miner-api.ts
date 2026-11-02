@@ -165,6 +165,7 @@ function normalize(info: Json, dash: Json | null): MinerSnapshot {
     bestDiff: parseDiff(perf?.bestDiff ?? info.bestDiff),
     bestSessionDiff: parseDiff(perf?.bestSessionDiff ?? info.bestSessionDiff),
     uptimeSeconds: num(info.uptimeSeconds) ?? num(dash?.system?.uptime),
+    totalHashes: num(info.totalHashes),
 
     chips,
   };

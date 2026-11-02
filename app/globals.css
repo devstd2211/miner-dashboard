@@ -8,3 +8,13 @@ body {
   background: #0b0d10;
   color: #e5e7eb;
 }
+
+/* Newest nonce in the live feed fades in. */
+@keyframes nonce-in {
+  from {
+    opacity: 0;
+  }
+}
+.nonce-in {
+  animation: nonce-in 0.25s ease-out;
+}

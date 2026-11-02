@@ -78,3 +78,30 @@ test("UI: Rescan finds the miners again", async ({ page }) => {
   await expect(button).toHaveText("Rescan", { timeout: 10_000 });
   await expect(page.getByRole("heading", { level: 2 })).toHaveCount(3);
 });
+
+test("Feed: live nonces arrive from every miner and show up on the cards", async ({ page }) => {
+  const data: MinersResponse = await (await page.request.get("/api/miners")).json();
+  await page.goto("/");
+
+  // Read the SSE stream in the page until every miner has sent at least one parsed nonce.
+  const seen = await page.evaluate(
+    (ids) =>
+      new Promise<Record<string, { nonce: string; status: string }>>((resolve) => {
+        const got: Record<string, { nonce: string; status: string }> = {};
+        const es = new EventSource("/api/feed");
+        const done = () => (es.close(), resolve(got));
+        es.onmessage = (e) => {
+          const { id, events } = JSON.parse(e.data);
+          if (events.length) got[id] = events[0];
+          if (ids.every((i) => got[i])) done();
+        };
+        setTimeout(done, 30_000);
+      }),
+    data.miners.map((m) => m.id),
+  );
+  for (const m of data.miners) {
+    expect(seen[m.id]?.nonce, `${m.hostname} nonce`).toMatch(/^[0-9A-F]{8}$/);
+  }
+  // At least one card shows a nonce in the feed line (8 lowercase hex digits).
+  await expect(page.locator("span.font-mono, div.font-mono span").filter({ hasText: /^[0-9a-f]{8}$/ }).first()).toBeVisible();
+});

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { MinerCard } from "@/components/MinerCard";
 import { fmt, fmtDiff, fmtHash, jPerTh } from "@/lib/format";
-import type { MinersResponse } from "@/lib/types";
+import type { MinersResponse, NonceEvent } from "@/lib/types";
 
 const REFRESH_MS = 5000;
 
@@ -21,6 +21,7 @@ export default function Home() {
   const [data, setData] = useState<MinersResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rescanning, setRescanning] = useState(false);
+  const [feeds, setFeeds] = useState<Record<string, NonceEvent[]>>({});
 
   const load = useCallback(async () => {
     try {
@@ -38,6 +39,16 @@ export default function Home() {
     const id = setInterval(load, REFRESH_MS);
     return () => clearInterval(id);
   }, [load]);
+
+  // Live nonces/shares from the miners' logs (server-sent events; reconnects by itself).
+  useEffect(() => {
+    const es = new EventSource("/api/feed");
+    es.onmessage = (e) => {
+      const { id, events } = JSON.parse(e.data) as { id: string; events: NonceEvent[] };
+      setFeeds((f) => ({ ...f, [id]: events }));
+    };
+    return () => es.close();
+  }, []);
 
   async function rescan() {
     setRescanning(true);
@@ -96,7 +107,7 @@ export default function Home() {
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
         {miners.map((m) => (
-          <MinerCard key={m.id} m={m} now={data!.now} />
+          <MinerCard key={m.id} m={m} now={data!.now} feed={feeds[m.id]} />
         ))}
       </section>
     </main>

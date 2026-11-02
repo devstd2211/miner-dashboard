@@ -65,8 +65,20 @@ export interface MinerSnapshot {
   bestDiff?: number;
   bestSessionDiff?: number;
   uptimeSeconds?: number;
+  totalHashes?: number; // lifetime hashes, AxeOS 2.x only (NerdQAxe does not report it)
 
   chips?: ChipStat[]; // nerdqaxe only
+}
+
+/** A nonce found by the ASIC, from the miner's log stream (see lib/share-feed.ts). */
+export interface NonceEvent {
+  t: number; // ms, when the dashboard saw it
+  nonce: string; // 8 hex digits
+  asic?: number; // which chip found it, 0-based
+  diff?: number; // difficulty of this nonce
+  poolDiff?: number; // share target; nonces below it are not sent to the pool
+  status: "found" | "submitted" | "accepted" | "rejected";
+  reason?: string; // pool's reject reason
 }
 
 export interface HistoryPoint {

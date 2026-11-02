@@ -40,8 +40,15 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   - ASIC/VRM temperature, fans
   - frequency, core voltage (set / actual)
   - pool: host, connected, fallback in use, accepted/rejected shares and reject %, ping
-  - best difficulty, uptime
+  - best difficulty, uptime; hashes computed since boot (estimate: average hashrate × uptime)
+    and, on AxeOS 2.x, the exact lifetime counter `totalHashes` (NerdQAxe does not report one)
   - link to the miner's own web UI (AxeOS / NerdQAxe), opens in a new tab
+  - live nonce feed under the IP: one row per chip (numbered like the chip table) with the
+    last 4 nonces that chip found and their difficulty, so 8×4 on a NerdOctaxe, 4×4 on a
+    NerdQAxe++, 1×4 on a Bitaxe (each chip's 4 become 2×2 when the card is too narrow, e.g.
+    on a phone); ↑ share accepted by the pool, ↓ rejected (hover for the reason), → waiting for the answer,
+    no mark: below the pool difficulty, not sent
+  - shares since boot (accepted ↑ / rejected ↓) next to the hashrate
   - hashrate chart for the last 24 h (plain SVG); periods with no data (PC asleep, miner
     offline) are shown as a grey "no data" band instead of a line across the gap
   - per-chip table (NerdQAxe firmware): hashrate and error % per chip, colored
@@ -65,6 +72,12 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
 - **Polling.** Only the server talks to the miners (no CORS issues), every 10 s. The 24 h
   hashrate history is kept in memory (points older than 24 h are dropped) and is lost on restart.
   While the PC sleeps nothing is polled, so the chart shows a gap for that time.
+- **Live feed.** The server keeps one websocket per miner to its log stream
+  (`ws://IP/api/ws`, the same log the miner's web UI shows) and parses the
+  "nonce found / mining.submit / pool result" lines of both firmwares (`lib/share-feed.ts`).
+  The browser gets the events via server-sent events from `GET /api/feed`. If a firmware
+  update changes the log format, only the feed line goes blank. Note that the ESP32 has few
+  websocket slots and the dashboard holds one per miner.
 - **API:** `GET /api/miners` returns the current state plus history averaged into 5-minute
   slots (slots with no samples are left out, so gaps stay gaps). `POST /api/rescan` runs a scan and waits for it to finish (about 10 s per /24).
 - **Units.** The two endpoints disagree on units (e.g. voltage in mV vs V, current in mA vs A),
@@ -104,6 +117,7 @@ What they check:
 - UI: the page renders without console errors, shows the summary and 3 cards, and the NerdQAxe
   cards have colored per-chip tables.
 - Rescan: the button runs a scan and all 3 miners are found again.
+- Feed: every miner sends parsed nonces through `/api/feed` within 30 s and they appear on the cards.
 
 A screenshot of the page is saved to `test-results/dashboard.png`. The expectations are written
 for the author's three miners: adjust them at the top of `tests/dashboard.spec.ts` for your setup.
@@ -156,8 +170,9 @@ lib/miner-api.ts   miner HTTP requests and JSON normalization (GH/s, W, V, A, °
 lib/scanner.ts     subnet detection and LAN scan
 lib/store.ts       state, miners.json, 24 h history, background poller
 lib/history.ts     history downsampling and gap detection for the chart
+lib/share-feed.ts  websocket to each miner's log, nonce/share parsing for the live feed
 instrumentation.ts starts the poller when the server starts
-app/api/*          GET /api/miners, POST /api/rescan
+app/api/*          GET /api/miners, POST /api/rescan, GET /api/feed (SSE)
 app/page.tsx       UI (summary + cards); components/: miner card, sparkline
 scripts/           Windows autostart
 tests/             Playwright e2e tests
