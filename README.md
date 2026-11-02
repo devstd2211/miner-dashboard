@@ -40,7 +40,9 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   - power, input voltage, current (highlighted above 90% of the max current), J/TH
   - ASIC/VRM temperature, fans
   - frequency, core voltage (set / actual)
-  - pool: host, connected, fallback in use, accepted/rejected shares and reject %, ping
+  - pool: host, connected, fallback in use, accepted/rejected shares and reject %, ping; the host links
+    to the pool's stats page for the wallet in the stratum user (Braiins Solo:
+    `solo.braiins.com/stats/<address>`, ckpool solo: `<host>/users/<address>`; other pools: no link)
   - best difficulty, uptime; hashes computed since boot (estimate: average hashrate × uptime)
     and, on AxeOS 2.x, the exact lifetime counter `totalHashes` (NerdQAxe does not report one)
   - link to the miner's own web UI (AxeOS / NerdQAxe), opens in a new tab

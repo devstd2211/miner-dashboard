@@ -53,6 +53,8 @@ test("UI: dashboard renders summary, cards and chip tables without errors", asyn
   for (const m of data.miners) {
     await expect(page.locator(`a[href="http://${m.ip}/"]`, { hasText: "UI ↗" })).toHaveAttribute("target", "_blank");
   }
+  // Pool host links to the pool's stats page for the wallet (all three mine on Braiins Solo).
+  await expect(page.locator('a[href^="https://solo.braiins.com/stats/bc1"]')).toHaveCount(data.miners.length);
 
   // Error % cells are colored green / amber / red.
   const colors = await page.locator("table tbody td:last-child").evaluateAll((tds) =>

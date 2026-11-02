@@ -105,6 +105,7 @@ function normalize(info: Json, dash: Json | null): MinerSnapshot {
   const pool = pools.find((p) => p.active) ?? pools[usingFallback && pools.length > 1 ? 1 : 0];
   const host = pool?.host ?? (usingFallback ? info.fallbackStratumURL : info.stratumURL);
   const port = num(pool?.port) ?? num(usingFallback ? info.fallbackStratumPort : info.stratumPort);
+  const user = pool?.user ?? (usingFallback ? info.fallbackStratumUser : info.stratumUser);
 
   const chips: ChipStat[] | undefined = Array.isArray(perf?.chips)
     ? perf.chips.map((c: Json) => ({ hashRate: num(c.hashRate) ?? 0, errorHashRate: num(c.errorHashRate) ?? 0 }))
@@ -155,6 +156,7 @@ function normalize(info: Json, dash: Json | null): MinerSnapshot {
     pool: {
       host,
       port,
+      user: typeof user === "string" ? user : undefined,
       connected: typeof pool?.connected === "boolean" ? pool.connected : undefined,
       usingFallback,
       accepted: num(pool?.accepted) ?? num(info.sharesAccepted) ?? 0,

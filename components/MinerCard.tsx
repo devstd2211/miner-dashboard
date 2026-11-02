@@ -1,5 +1,6 @@
 import type { ChipStat, MinerView, NonceEvent } from "@/lib/types";
 import { fmt, fmtDiff, fmtDuration, fmtHash, fmtHashes, jPerTh } from "@/lib/format";
+import { poolStatsUrl } from "@/lib/pools";
 import { NonceFeed } from "./NonceFeed";
 import { Sparkline } from "./Sparkline";
 
@@ -18,6 +19,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">{title}</div>
       {children}
     </div>
+  );
+}
+
+/** Pool host; links to the pool's stats page for this wallet when the pool is known. */
+function PoolHost({ host, port, user }: { host?: string; port?: number; user?: string }) {
+  const text = `${host ?? "—"}${port ? `:${port}` : ""}`;
+  const url = poolStatsUrl(host, user);
+  if (!url) return <span className="break-all">{text}</span>;
+  return (
+    <a href={url} target="_blank" rel="noreferrer" title="Pool stats for this wallet"
+      className="break-all underline decoration-zinc-500 decoration-dotted underline-offset-4 hover:text-amber-400 hover:decoration-amber-400">
+      {text}
+    </a>
   );
 }
 
@@ -175,7 +189,7 @@ export function MinerCard({ m, now, feed }: { m: MinerView; now: number; feed?: 
         </Section>
 
         <Section title="Pool">
-          <Stat label="Host" value={<span className="break-all">{s.pool.host ?? "—"}{s.pool.port ? `:${s.pool.port}` : ""}</span>} />
+          <Stat label="Host" value={<PoolHost host={s.pool.host} port={s.pool.port} user={s.pool.user} />} />
           <Stat
             label="Status"
             value={

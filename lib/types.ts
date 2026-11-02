@@ -55,6 +55,7 @@ export interface MinerSnapshot {
   pool: {
     host?: string;
     port?: number;
+    user?: string; // stratum user, "<bitcoin address>.<worker>" on solo pools
     connected?: boolean;
     usingFallback: boolean;
     accepted: number;
