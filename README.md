@@ -11,9 +11,10 @@ Next.js (App Router), no database, no auth, no Docker. Read-only: it never chang
     <td width="40%"><img src="docs/mobile.png" alt="Mobile view"></td>
   </tr>
   <tr>
-    <td>Miner card: hashrate vs expected, 24 h chart, power, temperatures, pool and per-chip
-    error rate (NerdQAxe firmware).</td>
-    <td>On a phone the cards stack in a single column.</td>
+    <td>Miner card: live nonce feed per chip (↑ accepted share), hashrate vs expected, shares,
+    24 h chart, power, temperatures, pool, hashes since boot and per-chip error rate
+    (NerdQAxe firmware).</td>
+    <td>On a phone the cards stack in a single column and each chip's nonces wrap to 2×2.</td>
   </tr>
 </table>
 
@@ -78,8 +79,9 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   The browser gets the events via server-sent events from `GET /api/feed`. If a firmware
   update changes the log format, only the feed line goes blank. Note that the ESP32 has few
   websocket slots and the dashboard holds one per miner.
-- **API:** `GET /api/miners` returns the current state plus history averaged into 5-minute
-  slots (slots with no samples are left out, so gaps stay gaps). `POST /api/rescan` runs a scan and waits for it to finish (about 10 s per /24).
+- **API:** `GET /api/miners` returns the current state plus history averaged into at most
+  288 time slots (5 minutes each for a full day, raw 10 s polls for the first ~48 min); slots
+  with no samples are left out, so gaps stay gaps. `POST /api/rescan` runs a scan and waits for it to finish (about 10 s per /24).
 - **Units.** The two endpoints disagree on units (e.g. voltage in mV vs V, current in mA vs A),
   and stock Bitaxe reports ASIC core-rail current rather than input current. Everything is
   normalized in `lib/miner-api.ts`.

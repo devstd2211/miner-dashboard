@@ -4,16 +4,19 @@
 import type { HistoryPoint } from "./types";
 
 export const HISTORY_WINDOW_MS = 24 * 3600 * 1000;
-export const BUCKET_MS = 5 * 60_000;
+export const MAX_POINTS = 288; // points sent to the chart: 24 h -> 5-minute slots
+const MIN_BUCKET_MS = 10_000; // = poll interval
 
 /**
- * Average the history into fixed 5-minute time slots. Slots without samples are simply absent,
- * so a period when nobody was polling (PC asleep, miner offline) stays a gap instead of being
- * blended into its neighbours. Short histories (< 1 bucket per point) are returned as is.
+ * Average the history into fixed time slots, about MAX_POINTS of them over the span (5 minutes
+ * for a full day; the first ~48 min are raw 10 s polls), so a fresh chart is not just a few
+ * straight segments. Slots without samples are simply absent, so a period when nobody was polling
+ * (PC asleep, miner offline) stays a gap instead of being blended into its neighbours.
  */
-export function downsample(history: HistoryPoint[], bucketMs = BUCKET_MS): HistoryPoint[] {
-  if (history.length < 2) return history;
-  if (history[history.length - 1].t - history[0].t < bucketMs * 4) return history;
+export function downsample(history: HistoryPoint[], maxPoints = MAX_POINTS): HistoryPoint[] {
+  if (history.length <= maxPoints) return history;
+  const span = history[history.length - 1].t - history[0].t;
+  const bucketMs = Math.max(MIN_BUCKET_MS, Math.ceil(span / maxPoints));
   const out: HistoryPoint[] = [];
   let slot = Math.floor(history[0].t / bucketMs);
   let sum = 0;

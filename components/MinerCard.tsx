@@ -115,7 +115,8 @@ export function MinerCard({ m, now, feed }: { m: MinerView; now: number; feed?: 
   const total = s.pool.accepted + s.pool.rejected;
   const rejPct = total ? (s.pool.rejected / total) * 100 : 0;
   // NerdQAxe has no hash counter: estimate from the average hashrate since boot.
-  const avgHr = (s.uptimeSeconds ?? 0) >= 86400 ? s.hashRate1d : s.hashRate1h;
+  // (stock AxeOS has no 1-day average, only 1 h)
+  const avgHr = ((s.uptimeSeconds ?? 0) >= 86400 ? s.hashRate1d : undefined) ?? s.hashRate1h ?? s.hashRate;
   const hashesSinceBoot = s.uptimeSeconds && avgHr ? avgHr * 1e9 * s.uptimeSeconds : undefined;
 
   return (
