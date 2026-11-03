@@ -5,12 +5,6 @@ Next.js (App Router), no database, no auth, no Docker. Read-only: it never chang
 
 ![Dashboard: summary and cards for three miners](docs/dashboard.png)
 
-<img src="docs/card-nerdoctaxe.png" width="508" alt="NerdOctaxe card with per-chip table">
-
-Miner card: live nonce feed per chip (↑ accepted share), hashrate vs expected, shares,
-24 h chart, power, temperatures, pool, hashes since boot and per-chip error rate
-(NerdQAxe firmware).
-
 ## Supported miners
 
 Anything that exposes the AxeOS HTTP API (`GET /api/system/info`, no auth):
