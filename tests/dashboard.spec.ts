@@ -29,6 +29,7 @@ test("API: miners are discovered and report sane data", async ({ request }) => {
     expect(ratio).toBeGreaterThan(0.7);
     expect(ratio).toBeLessThan(1.3);
     expect(s.pool.host).toBeTruthy();
+    expect(s.pool.connected, `${m.hostname} pool connected`).toBe(true);
     // Bitcoin network difficulty is in the 1e13..1e16 range; pool share target is far below.
     expect(s.networkDifficulty!).toBeGreaterThan(1e13);
     expect(s.networkDifficulty!).toBeLessThan(1e16);

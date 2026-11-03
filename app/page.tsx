@@ -74,7 +74,6 @@ export default function Home() {
     return vals.length ? Math.min(...vals) : undefined;
   };
   const poolDiffMin = minOf((m) => m.snapshot?.poolDifficulty);
-  const poolDiffMax = maxOf((m) => m.snapshot?.poolDifficulty);
   const networkDiff = maxOf((m) => m.snapshot?.networkDifficulty);
   const blockHeight = maxOf((m) => m.snapshot?.blockHeight);
   const scanning = rescanning || data?.scan.scanning;
@@ -111,11 +110,23 @@ export default function Home() {
 
       {networkDiff && (
         <section className="-mt-3 mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <Tile
-            label="Pool difficulty"
-            value={poolDiffMin === poolDiffMax ? fmtDiffShort(poolDiffMin) : `${fmtDiffShort(poolDiffMin)}–${fmtDiffShort(poolDiffMax)}`}
-            sub="share target"
-          />
+          <div
+            className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3"
+            title="Minimum difficulty a nonce needs to be sent to the pool as a share. The pool sets it per miner (vardiff) to match its hashrate."
+          >
+            <div className="text-xs text-zinc-500">Share difficulty (set by pool)</div>
+            <div className="mt-1.5 space-y-0.5 text-sm tabular-nums">
+              {[...online]
+                .filter((m) => m.snapshot!.poolDifficulty)
+                .sort((a, b) => a.snapshot!.poolDifficulty! - b.snapshot!.poolDifficulty!)
+                .map((m) => (
+                  <div key={m.id} className="flex justify-between gap-2">
+                    <span className="truncate text-zinc-400">{m.hostname}</span>
+                    <span className="font-semibold">{fmtDiffShort(m.snapshot!.poolDifficulty)}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
           <Tile
             label="Network difficulty"
             value={fmtDiff(networkDiff)}

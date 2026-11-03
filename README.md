@@ -34,6 +34,9 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
 
 - Summary: total hashrate, total power, overall J/TH, miners online, best difficulty
   (all-time and session).
+- Difficulty row: each miner's share difficulty (set by the pool), the network difficulty
+  with the current block height, and a log-scale bar from share to block difficulty
+  marking every miner's best share (all-time and since boot).
 - A card per miner:
   - online/offline status (offline after 30 s without a response)
   - current and 1 h hashrate vs expected (`frequency × smallCoreCount × asicCount / 1000`)

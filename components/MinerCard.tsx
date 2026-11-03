@@ -147,7 +147,7 @@ export function MinerCard({ m, now, feed }: { m: MinerView; now: number; feed?: 
           <div className="mt-0.5 text-xs tabular-nums text-zinc-400" title="shares since boot: accepted / rejected">
             shares <span className="text-emerald-400">↑ {s.pool.accepted.toLocaleString("en-US")}</span>
             {" · "}
-            <span className={rejPct > 1 ? "text-red-400" : "text-zinc-400"}>↓ {s.pool.rejected.toLocaleString("en-US")}</span>
+            <span className={s.pool.rejected > 0 ? "text-red-400" : "text-zinc-400"}>↓ {s.pool.rejected.toLocaleString("en-US")}</span>
           </div>
         </div>
         <div className="text-right tabular-nums">
@@ -200,7 +200,17 @@ export function MinerCard({ m, now, feed }: { m: MinerView; now: number; feed?: 
             }
             warn={s.pool.connected === false}
           />
-          <Stat label="Shares" value={`${s.pool.accepted} / ${s.pool.rejected} (${rejPct.toFixed(2)}%)`} warn={rejPct > 1} />
+          <Stat
+            label="Shares"
+            value={
+              <>
+                {s.pool.accepted} / {s.pool.rejected}{" "}
+                <span className={s.pool.rejected > 0 ? `text-red-400 ${rejPct > 1 ? "font-semibold" : ""}` : undefined}>
+                  ({rejPct.toFixed(2)}%)
+                </span>
+              </>
+            }
+          />
           <Stat label="Ping" value={fmt(s.pool.pingMs, 0, " ms")} />
         </Section>
 

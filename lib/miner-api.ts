@@ -157,7 +157,13 @@ function normalize(info: Json, dash: Json | null): MinerSnapshot {
       host,
       port,
       user: typeof user === "string" ? user : undefined,
-      connected: typeof pool?.connected === "boolean" ? pool.connected : undefined,
+      connected:
+        typeof pool?.connected === "boolean"
+          ? pool.connected
+          : // AxeOS 2.x has no flag; poolConnectionInfo is the socket's family ("IPv4"/"IPv6") while connected.
+            typeof info.poolConnectionInfo === "string"
+            ? /^IPv[46]/.test(info.poolConnectionInfo)
+            : undefined,
       usingFallback,
       accepted: num(pool?.accepted) ?? num(info.sharesAccepted) ?? 0,
       rejected: num(pool?.rejected) ?? num(info.sharesRejected) ?? 0,
