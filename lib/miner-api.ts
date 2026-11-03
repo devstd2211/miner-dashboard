@@ -166,6 +166,9 @@ function normalize(info: Json, dash: Json | null): MinerSnapshot {
 
     bestDiff: parseDiff(perf?.bestDiff ?? info.bestDiff),
     bestSessionDiff: parseDiff(perf?.bestSessionDiff ?? info.bestSessionDiff),
+    poolDifficulty: num(info.poolDifficulty) ?? num(pool?.poolDifficulty),
+    networkDifficulty: parseDiff(info.networkDifficulty ?? pool?.networkDifficulty),
+    blockHeight: num(info.blockHeight) ?? num(dash?.coinbase?.blockHeaders?.[0]?.blockHeight),
     uptimeSeconds: num(info.uptimeSeconds) ?? num(dash?.system?.uptime),
     totalHashes: num(info.totalHashes),
 

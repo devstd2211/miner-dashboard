@@ -65,6 +65,9 @@ export interface MinerSnapshot {
 
   bestDiff?: number;
   bestSessionDiff?: number;
+  poolDifficulty?: number; // current share target set by the pool
+  networkDifficulty?: number; // bitcoin network difficulty, as the pool's job reports it
+  blockHeight?: number;
   uptimeSeconds?: number;
   totalHashes?: number; // lifetime hashes, AxeOS 2.x only (NerdQAxe does not report it)
 

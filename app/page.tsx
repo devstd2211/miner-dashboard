@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { DiffProgress } from "@/components/DiffProgress";
 import { MinerCard } from "@/components/MinerCard";
-import { fmt, fmtDiff, fmtHash, jPerTh } from "@/lib/format";
+import { fmt, fmtDiff, fmtDiffShort, fmtHash, jPerTh } from "@/lib/format";
 import type { MinersResponse, NonceEvent } from "@/lib/types";
 
 const REFRESH_MS = 5000;
@@ -68,6 +69,14 @@ export default function Home() {
     const vals = miners.map(pick).filter((v): v is number => v !== undefined);
     return vals.length ? Math.max(...vals) : undefined;
   };
+  const minOf = (pick: (m: (typeof miners)[number]) => number | undefined) => {
+    const vals = miners.map(pick).filter((v): v is number => v !== undefined && v > 0);
+    return vals.length ? Math.min(...vals) : undefined;
+  };
+  const poolDiffMin = minOf((m) => m.snapshot?.poolDifficulty);
+  const poolDiffMax = maxOf((m) => m.snapshot?.poolDifficulty);
+  const networkDiff = maxOf((m) => m.snapshot?.networkDifficulty);
+  const blockHeight = maxOf((m) => m.snapshot?.blockHeight);
   const scanning = rescanning || data?.scan.scanning;
 
   return (
@@ -99,6 +108,32 @@ export default function Home() {
         <Tile label="Best diff (all-time)" value={fmtDiff(maxOf((m) => m.snapshot?.bestDiff))} />
         <Tile label="Best diff (session)" value={fmtDiff(maxOf((m) => m.snapshot?.bestSessionDiff))} />
       </section>
+
+      {networkDiff && (
+        <section className="-mt-3 mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <Tile
+            label="Pool difficulty"
+            value={poolDiffMin === poolDiffMax ? fmtDiffShort(poolDiffMin) : `${fmtDiffShort(poolDiffMin)}–${fmtDiffShort(poolDiffMax)}`}
+            sub="share target"
+          />
+          <Tile
+            label="Network difficulty"
+            value={fmtDiff(networkDiff)}
+            sub={blockHeight ? `block ${blockHeight.toLocaleString()}` : undefined}
+          />
+          <div className="col-span-2 md:col-span-3 xl:col-span-4">
+            <DiffProgress
+              from={poolDiffMin ?? 1000}
+              to={networkDiff}
+              marks={miners.map((m) => ({
+                name: m.hostname,
+                best: m.snapshot?.bestDiff,
+                session: m.snapshot?.bestSessionDiff,
+              }))}
+            />
+          </div>
+        </section>
+      )}
 
       {!data && !error && <p className="text-zinc-500">Loading…</p>}
       {data && miners.length === 0 && (

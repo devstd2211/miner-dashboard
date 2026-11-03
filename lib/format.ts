@@ -12,6 +12,9 @@ export function fmtDiff(d?: number) {
   return `${d.toFixed(d >= 100 ? 0 : 2)}${units[i]}`;
 }
 
+/** fmtDiff without trailing ".00": 1000 -> "1K", 12466 -> "12.47K". */
+export const fmtDiffShort = (d?: number) => fmtDiff(d).replace(/\.00(?=\D*$)/, "");
+
 /** Hash count with SI prefix: 5.74e18 -> "5.74 EH". */
 export function fmtHashes(h?: number) {
   if (h === undefined) return "—";

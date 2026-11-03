@@ -29,6 +29,11 @@ test("API: miners are discovered and report sane data", async ({ request }) => {
     expect(ratio).toBeGreaterThan(0.7);
     expect(ratio).toBeLessThan(1.3);
     expect(s.pool.host).toBeTruthy();
+    // Bitcoin network difficulty is in the 1e13..1e16 range; pool share target is far below.
+    expect(s.networkDifficulty!).toBeGreaterThan(1e13);
+    expect(s.networkDifficulty!).toBeLessThan(1e16);
+    expect(s.poolDifficulty!).toBeGreaterThan(0);
+    expect(s.blockHeight!).toBeGreaterThan(900_000);
   }
 });
 
@@ -41,6 +46,8 @@ test("UI: dashboard renders summary, cards and chip tables without errors", asyn
   await expect(page.getByText("Total hashrate")).toBeVisible();
   await expect(page.getByText(/^\d+ \/ \d+$/)).toHaveText(/^3 \/ 3$/); // online count tile
   await expect(page.getByText("TH/s").first()).toBeVisible();
+  await expect(page.getByText("Network difficulty")).toBeVisible();
+  await expect(page.getByTestId("diff-progress")).toContainText("of network");
 
   // One card per miner, each with a sparkline section and a pool section.
   await expect(page.getByRole("heading", { level: 2 })).toHaveCount(3);
