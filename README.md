@@ -5,18 +5,11 @@ Next.js (App Router), no database, no auth, no Docker. Read-only: it never chang
 
 ![Dashboard: summary and cards for three miners](docs/dashboard.png)
 
-<table>
-  <tr>
-    <td width="60%"><img src="docs/card-nerdoctaxe.png" alt="NerdOctaxe card with per-chip table"></td>
-    <td width="40%"><img src="docs/mobile.png" alt="Mobile view"></td>
-  </tr>
-  <tr>
-    <td>Miner card: live nonce feed per chip (↑ accepted share), hashrate vs expected, shares,
-    24 h chart, power, temperatures, pool, hashes since boot and per-chip error rate
-    (NerdQAxe firmware).</td>
-    <td>On a phone the cards stack in a single column and each chip's nonces wrap to 2×2.</td>
-  </tr>
-</table>
+<img src="docs/card-nerdoctaxe.png" width="508" alt="NerdOctaxe card with per-chip table">
+
+Miner card: live nonce feed per chip (↑ accepted share), hashrate vs expected, shares,
+24 h chart, power, temperatures, pool, hashes since boot and per-chip error rate
+(NerdQAxe firmware).
 
 ## Supported miners
 
@@ -51,8 +44,8 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   - link to the miner's own web UI (AxeOS / NerdQAxe), opens in a new tab
   - live nonce feed under the IP: one row per chip (numbered like the chip table) with the
     last 4 nonces that chip found and their difficulty, so 8×4 on a NerdOctaxe, 4×4 on a
-    NerdQAxe++, 1×4 on a Bitaxe (each chip's 4 become 2×2 when the card is too narrow, e.g.
-    on a phone); ↑ share accepted by the pool, ↓ rejected (hover for the reason), → waiting for the answer,
+    NerdQAxe++, 1×4 on a Bitaxe (each chip's 4 become 2×2 when the card is too narrow);
+    ↑ share accepted by the pool, ↓ rejected (hover for the reason), → waiting for the answer,
     no mark: below the pool difficulty, not sent
   - shares since boot (accepted ↑ / rejected ↓) next to the hashrate
   - hashrate chart for the last 24 h (plain SVG); periods with no data (PC asleep, miner
