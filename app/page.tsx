@@ -8,11 +8,11 @@ import type { MinersResponse, NonceEvent } from "@/lib/types";
 
 const REFRESH_MS = 5000;
 
-function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Tile({ label, value, sub, good }: { label: string; value: string; sub?: string; good?: boolean }) {
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3">
       <div className="text-xs text-zinc-500">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+      <div className={`mt-1 text-2xl font-semibold tabular-nums ${good ? "text-emerald-400" : ""}`}>{value}</div>
       {sub && <div className="text-xs text-zinc-500 tabular-nums">{sub}</div>}
     </div>
   );
@@ -104,8 +104,8 @@ export default function Home() {
         <Tile label="Total power" value={fmt(totalPower, 0, " W")} />
         <Tile label="Efficiency" value={fmt(jPerTh(totalPower, totalHash), 2, " J/TH")} />
         <Tile label="Online" value={`${online.length} / ${miners.length}`} />
-        <Tile label="Best diff (all-time)" value={fmtDiff(maxOf((m) => m.snapshot?.bestDiff))} />
-        <Tile label="Best diff (session)" value={fmtDiff(maxOf((m) => m.snapshot?.bestSessionDiff))} />
+        <Tile label="Best diff (all-time)" value={fmtDiff(maxOf((m) => m.snapshot?.bestDiff))} good />
+        <Tile label="Best diff (session)" value={fmtDiff(maxOf((m) => m.snapshot?.bestSessionDiff))} good />
       </section>
 
       {networkDiff && (
@@ -122,7 +122,7 @@ export default function Home() {
                 .map((m) => (
                   <div key={m.id} className="flex justify-between gap-2">
                     <span className="truncate text-zinc-400">{m.hostname}</span>
-                    <span className="font-semibold">{fmtDiffShort(m.snapshot!.poolDifficulty)}</span>
+                    <span className="font-semibold text-emerald-400">{fmtDiffShort(m.snapshot!.poolDifficulty)}</span>
                   </div>
                 ))}
             </div>

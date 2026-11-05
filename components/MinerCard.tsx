@@ -1,14 +1,21 @@
 import type { ChipStat, MinerView, NonceEvent } from "@/lib/types";
-import { fmt, fmtDiff, fmtDuration, fmtHash, fmtHashes, jPerTh } from "@/lib/format";
+import { fmt, fmtDiff, fmtDiffShort, fmtDuration, fmtHash, fmtHashes, jPerTh } from "@/lib/format";
 import { poolStatsUrl } from "@/lib/pools";
 import { NonceFeed } from "./NonceFeed";
 import { Sparkline } from "./Sparkline";
 
-function Stat({ label, value, warn }: { label: string; value: React.ReactNode; warn?: boolean }) {
+function Stat({ label, value, warn, good, title }: {
+  label: string;
+  value: React.ReactNode;
+  warn?: boolean;
+  good?: boolean; // highlight a key figure in green
+  title?: string;
+}) {
+  const cls = warn ? "font-semibold text-red-400" : good ? "font-semibold text-emerald-400" : "text-zinc-200";
   return (
-    <div className="flex justify-between gap-2 py-0.5">
+    <div className="flex justify-between gap-2 py-0.5" title={title}>
       <span className="text-zinc-500">{label}</span>
-      <span className={`tabular-nums ${warn ? "font-semibold text-red-400" : "text-zinc-200"}`}>{value}</span>
+      <span className={`tabular-nums ${cls}`}>{value}</span>
     </div>
   );
 }
@@ -215,8 +222,14 @@ export function MinerCard({ m, now, feed }: { m: MinerView; now: number; feed?: 
         </Section>
 
         <Section title="Stats">
-          <Stat label="Best diff (session)" value={fmtDiff(s.bestSessionDiff)} />
-          <Stat label="Best diff (all-time)" value={fmtDiff(s.bestDiff)} />
+          <Stat
+            label="Share difficulty (pool)"
+            value={fmtDiffShort(s.poolDifficulty)}
+            good={s.poolDifficulty !== undefined}
+            title="Share target the pool assigned to this miner (vardiff)"
+          />
+          <Stat label="Best diff (session)" value={fmtDiff(s.bestSessionDiff)} good={s.bestSessionDiff !== undefined} />
+          <Stat label="Best diff (all-time)" value={fmtDiff(s.bestDiff)} good={s.bestDiff !== undefined} />
           <Stat label="Uptime" value={fmtDuration(s.uptimeSeconds)} />
           <Stat label="Hashes (since boot)" value={hashesSinceBoot ? `≈ ${fmtHashes(hashesSinceBoot)}` : "—"} />
           {s.totalHashes !== undefined && <Stat label="Hashes (lifetime)" value={fmtHashes(s.totalHashes)} />}
