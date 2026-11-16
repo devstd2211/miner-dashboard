@@ -45,7 +45,7 @@ test("UI: dashboard renders summary, cards and chip tables without errors", asyn
 
   await page.goto("/");
   await expect(page.getByText("Total hashrate")).toBeVisible();
-  await expect(page.getByText(/^\d+ \/ \d+$/)).toHaveText(/^3 \/ 3$/); // online count tile
+  await expect(page.getByText("Online", { exact: true }).locator("..")).toContainText("3 / 3"); // online count tile
   await expect(page.getByText("TH/s").first()).toBeVisible();
   await expect(page.getByText("Network difficulty")).toBeVisible();
   await expect(page.getByTestId("diff-progress")).toContainText("of network");
@@ -114,4 +114,69 @@ test("Feed: live nonces arrive from every miner and show up on the cards", async
   }
   // At least one card shows a nonce in the feed line (8 lowercase hex digits).
   await expect(page.locator("span.font-mono, div.font-mono span").filter({ hasText: /^[0-9a-f]{8}$/ }).first()).toBeVisible();
+});
+
+test("UI: 15 miners switch to compact cards, ranked by best share, table view works", async ({ page }) => {
+  // Clone the real miners into 15 with mocked APIs; two of them offline.
+  const real: MinersResponse = await (await page.request.get("/api/miners")).json();
+  const miners = Array.from({ length: 15 }, (_, i) => {
+    const m = structuredClone(real.miners[i % real.miners.length]);
+    m.id = `AA:00:00:00:00:${i.toString(16).padStart(2, "0")}`;
+    m.hostname = `Sim-${String(i + 1).padStart(2, "0")}`;
+    if (i === 4 || i === 9) m.online = false;
+    return m;
+  });
+  await page.route("**/api/miners", (r) => r.fulfill({ json: { ...real, now: Date.now(), miners } }));
+  await page.route("**/api/feed", (r) => r.fulfill({ contentType: "text/event-stream", body: "retry: 600000\n\n" }));
+  // Start without a saved view choice (only on the first load, so reload keeps the choice).
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem("sim")) localStorage.removeItem("miners.view");
+    sessionStorage.setItem("sim", "1");
+  });
+
+  await page.goto("/");
+  await expect(page.getByText("Online", { exact: true }).locator("..")).toContainText("13 / 15");
+  await expect(page.getByTestId("miner-compact")).toHaveCount(15);
+  await expect(page.getByRole("button", { name: "Compact" })).toHaveAttribute("aria-pressed", "true");
+  // Leaderboard: the best share since boot first (with the trophy), offline miners last.
+  const leader = miners
+    .filter((m) => m.online)
+    .sort((a, b) => (b.snapshot?.bestSessionDiff ?? 0) - (a.snapshot?.bestSessionDiff ?? 0) || a.hostname.localeCompare(b.hostname))[0];
+  const headings = page.getByRole("heading", { level: 2 });
+  await expect(headings.nth(0)).toHaveText(leader.hostname);
+  await expect(page.getByTestId("miner-compact").nth(0)).toContainText("🏆 #1");
+  expect((await headings.allTextContents()).slice(-2).sort()).toEqual(["Sim-05", "Sim-10"]);
+
+  // "more" opens the full card in place, "less" closes it.
+  await page.getByRole("button", { name: "more ▾" }).nth(2).click();
+  await expect(page.getByTestId("miner-compact")).toHaveCount(14);
+  await page.getByRole("button", { name: "less ▴" }).click();
+  await expect(page.getByTestId("miner-compact")).toHaveCount(15);
+
+  // Table: one row per miner; the choice is remembered.
+  await page.getByRole("button", { name: "Table" }).click();
+  await expect(page.locator('[data-testid="miner-table"] > tbody > tr')).toHaveCount(15);
+  await page.reload();
+  await expect(page.getByTestId("miner-table")).toBeVisible();
+});
+
+test("UI: a miner that takes the lead moves to the first card and glows", async ({ page }) => {
+  const real: MinersResponse = await (await page.request.get("/api/miners")).json();
+  const best = Math.max(...real.miners.map((m) => m.snapshot?.bestSessionDiff ?? 0));
+  const last = real.miners.reduce((a, b) => ((a.snapshot?.bestSessionDiff ?? 0) <= (b.snapshot?.bestSessionDiff ?? 0) ? a : b));
+  let lead = false;
+  await page.route("**/api/miners", (r) => {
+    const data: MinersResponse = structuredClone(real);
+    // Once `lead` is set, the last miner has found a share better than everyone's.
+    if (lead) data.miners.find((m) => m.id === last.id)!.snapshot!.bestSessionDiff = best * 2;
+    return r.fulfill({ json: { ...data, now: Date.now() } });
+  });
+  await page.goto("/");
+  const first = page.getByRole("heading", { level: 2 }).first();
+  await expect(first).toHaveText(real.miners.find((m) => m.snapshot?.bestSessionDiff === best)!.hostname);
+  await expect(page.locator(".rank-up")).toHaveCount(0);
+  lead = true;
+  await expect(first).toHaveText(last.hostname, { timeout: 10_000 }); // next poll is 5 s later
+  await expect(page.locator(".rank-up")).toHaveCount(1);
+  await expect(page.locator(".rank-up")).toContainText("🏆 #1");
 });

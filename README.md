@@ -5,6 +5,13 @@ Next.js (App Router), no database, no auth, no Docker. Read-only: it never chang
 
 ![Dashboard: summary and cards for three miners](docs/dashboard.png)
 
+With many miners the page switches to compact cards; a table view is one click away
+(screenshots with 10 simulated miners):
+
+![Compact cards: 10 miners on one screen](docs/compact-10.png)
+
+![Table view: one row per miner](docs/table-10.png)
+
 ## Supported miners
 
 Anything that exposes the AxeOS HTTP API (`GET /api/system/info`, no auth):
@@ -19,17 +26,34 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
 
 ## Features
 
+- Three views, switched in the header (the choice is remembered in the browser):
+  - **Cards**: full cards; 3 columns for up to 3 miners, 4 columns for more (fewer on a narrow
+    window, a card is never narrower than 440 px). With more than 6 miners the nonce feeds
+    start collapsed.
+  - **Compact**: small cards with hashrate, % of expected, chart, power, J/TH, ASIC temperature,
+    shares, share difficulty and best share; "more" opens the full card in place. This is the
+    default when there are more than 6 miners.
+  - **Table**: one row per miner; click the name to open its full card under the row.
+- Leaderboard: miners are ordered by their best share since boot, the leader gets a 🏆 #1 badge,
+  the others #2, #3… Offline miners go last. When a miner climbs the leaderboard its card
+  glows green for a few seconds.
+- Problems are flagged with an amber border and a "⚠" line (they don't change the order):
+  pool disconnected, fallback pool, ASIC ≥ 70 °C, VRM ≥ 80 °C, 1 h hashrate below 85% of
+  expected, rejects above 1%, current above 90% of the max. Offline miners get a red border
+  and are dimmed, their last known data marked as stale.
 - Summary: total hashrate, total power, overall J/TH, miners online, best difficulty
   (all-time and session).
-- Difficulty row: each miner's share difficulty (set by the pool), the network difficulty
+- Difficulty row: each miner's share difficulty (set by the pool; miners with the same
+  difficulty share one line), the network difficulty
   with the current block height, and a log-scale bar from share to block difficulty
-  marking every miner's best share (all-time and since boot).
+  marking every miner's best share (all-time and since boot; with more than 6 miners only
+  the all-time best, as thin ticks).
 - A card per miner:
   - online/offline status (offline after 30 s without a response)
   - current and 1 h hashrate vs expected (`frequency × smallCoreCount × asicCount / 1000`)
   - power, input voltage, current (highlighted above 90% of the max current), J/TH
   - ASIC/VRM temperature, fans
-  - frequency, core voltage (set / actual)
+  - frequency, core voltage in mV (set / actual)
   - pool: host, connected, fallback in use, accepted/rejected shares and reject %, ping; the host links
     to the pool's stats page for the wallet in the stratum user (Braiins Solo:
     `solo.braiins.com/stats/<address>`, ckpool solo: `<host>/users/<address>`; other pools: no link)
@@ -112,6 +136,11 @@ What they check:
   cards have colored per-chip tables.
 - Rescan: the button runs a scan and all 3 miners are found again.
 - Feed: every miner sends parsed nonces through `/api/feed` within 30 s and they appear on the cards.
+- Many miners: with the API mocked to 15 miners (clones of yours, two offline) the page switches
+  to compact cards, puts the leader first and offline miners last, opens and closes a full card,
+  and the table view shows 15 rows and is remembered after a reload.
+- Leaderboard: when a miner's best share since boot becomes the highest, its card moves to the
+  first place and glows.
 
 A screenshot of the page is saved to `test-results/dashboard.png`. The expectations are written
 for the author's three miners: adjust them at the top of `tests/dashboard.spec.ts` for your setup.
@@ -165,9 +194,12 @@ lib/scanner.ts     subnet detection and LAN scan
 lib/store.ts       state, miners.json, 24 h history, background poller
 lib/history.ts     history downsampling and gap detection for the chart
 lib/share-feed.ts  websocket to each miner's log, nonce/share parsing for the live feed
+lib/health.ts      problem flags (thresholds) and the leaderboard order
 instrumentation.ts starts the poller when the server starts
 app/api/*          GET /api/miners, POST /api/rescan, GET /api/feed (SSE)
-app/page.tsx       UI (summary + cards); components/: miner card, sparkline
+app/page.tsx       UI: summary, view switch, leaderboard
+components/        full card (MinerCard), compact card, table, rank badge, sparkline,
+                   difficulty bar, nonce feed
 scripts/           Windows autostart
 tests/             Playwright e2e tests
 ```

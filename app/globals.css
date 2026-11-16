@@ -18,3 +18,17 @@ body {
 .nonce-in {
   animation: nonce-in 0.25s ease-out;
 }
+
+/* A miner that just climbed the leaderboard (new best share since boot) glows for a moment. */
+@keyframes rank-up {
+  0%,
+  60% {
+    box-shadow: 0 0 0 2px rgb(52 211 153 / 0.9), 0 0 24px rgb(52 211 153 / 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(52 211 153 / 0);
+  }
+}
+.rank-up {
+  animation: rank-up 5s ease-out;
+}

@@ -8,11 +8,12 @@ const fmtGap = (ms: number) => (ms >= 3_600_000 ? `${(ms / 3_600_000).toFixed(1)
  * Hashrate history as a tiny SVG area chart, with an optional dashed "expected" line.
  * Periods without data (dashboard asleep, miner offline) are left empty, not bridged by a line.
  */
-export function Sparkline({ points, expected }: { points: HistoryPoint[]; expected?: number }) {
+/** compact: shorter chart without the time/min/max footer (compact cards). */
+export function Sparkline({ points, expected, compact }: { points: HistoryPoint[]; expected?: number; compact?: boolean }) {
   const W = 300;
   const H = 56;
   if (points.length < 2) {
-    return <div className="flex h-14 items-center text-xs text-zinc-600">collecting history…</div>;
+    return <div className={`flex items-center text-xs text-zinc-600 ${compact ? "h-9" : "h-14"}`}>collecting history…</div>;
   }
 
   const values = points.map((p) => p.hr);
@@ -46,7 +47,7 @@ export function Sparkline({ points, expected }: { points: HistoryPoint[]; expect
   return (
     <div>
       <div className="relative">
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-14 w-full">
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className={`w-full ${compact ? "h-9" : "h-14"}`}>
           {gaps.map((g, i) => (
             <rect key={i} data-gap x={g.x1} width={g.x2 - g.x1} y="0" height={H} fill="rgb(113 113 122 / 0.12)">
               <title>no data</title>
@@ -72,11 +73,11 @@ export function Sparkline({ points, expected }: { points: HistoryPoint[]; expect
             </span>
           ))}
       </div>
-      <div className="mt-0.5 flex justify-between text-[10px] text-zinc-500">
+      {!compact && <div className="mt-0.5 flex justify-between text-[10px] text-zinc-500">
         <span>{spanH >= 1 ? `${spanH.toFixed(1)} h` : `${Math.round(spanH * 60)} min`} ago</span>
         <span>min {fmtHash(Math.min(...values))} · max {fmtHash(Math.max(...values))}</span>
         <span>now</span>
-      </div>
+      </div>}
     </div>
   );
 }

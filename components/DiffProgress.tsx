@@ -24,6 +24,9 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
   const ticks: number[] = [];
   for (let e = Math.ceil(lo / 3) * 3; e < hi; e += 3) if (e > lo) ticks.push(10 ** e);
   const sorted = [...marks].filter((m) => m.best).sort((a, b) => b.best! - a.best!);
+  // Many miners: dots would merge into a blob, so draw thin ticks for the all-time best only
+  // (the per-miner "since boot" values stay in the legend below).
+  const dense = marks.length > 6;
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3" data-testid="diff-progress">
@@ -48,7 +51,7 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
           <div key={t} className="absolute inset-y-0 w-px bg-zinc-950/70" style={{ left: `${pos(t)}%` }} />
         ))}
         {marks.flatMap((m) => [
-          m.session ? (
+          m.session && !dense ? (
             <div
               key={`${m.name}-s`}
               title={`${m.name}: best since boot ${fmtDiff(m.session)}`}
@@ -56,7 +59,14 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
               style={{ left: `${pos(m.session)}%` }}
             />
           ) : null,
-          m.best ? (
+          m.best && dense ? (
+            <div
+              key={`${m.name}-b`}
+              title={`${m.name}: best ever ${fmtDiff(m.best)}`}
+              className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-zinc-100 ring-1 ring-zinc-900"
+              style={{ left: `${pos(m.best)}%` }}
+            />
+          ) : m.best ? (
             <div
               key={`${m.name}-b`}
               title={`${m.name}: best ever ${fmtDiff(m.best)}`}
