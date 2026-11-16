@@ -180,3 +180,14 @@ test("UI: a miner that takes the lead moves to the first card and glows", async 
   await expect(page.locator(".rank-up")).toHaveCount(1);
   await expect(page.locator(".rank-up")).toContainText("🏆 #1");
 });
+
+test("Demo: ?demo=12 shows 12 made-up miners without calling the miners API", async ({ page }) => {
+  let apiCalls = 0;
+  page.on("request", (r) => r.url().includes("/api/") && apiCalls++);
+  await page.goto("/?demo=12");
+  await expect(page.getByText("demo data")).toBeVisible();
+  await expect(page.getByTestId("miner-compact")).toHaveCount(12); // > 6 miners: compact by default
+  await expect(page.getByText("Online", { exact: true }).locator("..")).toContainText("11 / 12");
+  await expect(page.getByText("🏆 #1")).toHaveCount(1);
+  expect(apiCalls).toBe(0);
+});

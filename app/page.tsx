@@ -5,6 +5,7 @@ import { DiffProgress } from "@/components/DiffProgress";
 import { MinerCard } from "@/components/MinerCard";
 import { MinerCompact } from "@/components/MinerCompact";
 import { MinerTable } from "@/components/MinerTable";
+import { createDemo, type Demo } from "@/lib/demo";
 import { sortMiners } from "@/lib/health";
 import { fmt, fmtDiff, fmtDiffShort, fmtHash, jPerTh } from "@/lib/format";
 import type { MinersResponse, NonceEvent } from "@/lib/types";
@@ -47,6 +48,15 @@ export default function Home() {
   // Miners that just climbed the leaderboard: id -> time, cleared after the glow animation.
   const [climbed, setClimbed] = useState<Record<string, number>>({});
   const prevRanks = useRef<Record<string, number> | null>(null);
+  // ?demo=N shows N made-up miners instead of the real ones (README screenshots, layout tests).
+  const demo = useRef<Demo | null>(null);
+  const [mode, setMode] = useState<"pending" | "live" | "demo">("pending");
+
+  useEffect(() => {
+    const n = Number(new URLSearchParams(window.location.search).get("demo"));
+    if (n > 0) demo.current = createDemo(Math.min(Math.floor(n), 60));
+    setMode(demo.current ? "demo" : "live");
+  }, []);
 
   useEffect(() => {
     try {
@@ -69,6 +79,11 @@ export default function Home() {
     });
 
   const load = useCallback(async () => {
+    if (demo.current) {
+      setData(demo.current.tick());
+      setFeeds(demo.current.feeds());
+      return;
+    }
     try {
       const res = await fetch("/api/miners", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -80,22 +95,25 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (mode === "pending") return;
     load();
     const id = setInterval(load, REFRESH_MS);
     return () => clearInterval(id);
-  }, [load]);
+  }, [load, mode]);
 
   // Live nonces/shares from the miners' logs (server-sent events; reconnects by itself).
   useEffect(() => {
+    if (mode !== "live") return;
     const es = new EventSource("/api/feed");
     es.onmessage = (e) => {
       const { id, events } = JSON.parse(e.data) as { id: string; events: NonceEvent[] };
       setFeeds((f) => ({ ...f, [id]: events }));
     };
     return () => es.close();
-  }, []);
+  }, [mode]);
 
   async function rescan() {
+    if (demo.current) return load();
     setRescanning(true);
     try {
       await fetch("/api/rescan", { method: "POST" });
@@ -152,7 +170,14 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-[3200px] p-4 sm:p-6">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Miners</h1>
+        <h1 className="flex items-center gap-2 text-xl font-semibold">
+          Miners
+          {mode === "demo" && (
+            <span className="rounded bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-400" title="Made-up miners (?demo=N)">
+              demo data
+            </span>
+          )}
+        </h1>
         <div className="flex items-center gap-3 text-xs text-zinc-500">
           {error && <span className="text-red-400">API error: {error}</span>}
           {data?.scan.lastScanAt && (

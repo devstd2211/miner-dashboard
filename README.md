@@ -3,14 +3,19 @@
 A local dashboard for home Bitcoin miners running AxeOS (Bitaxe) and NerdQAxe firmware.
 Next.js (App Router), no database, no auth, no Docker. Read-only: it never changes miner settings.
 
-![Dashboard: summary and cards for three miners](docs/dashboard.png)
+Screenshots show 10 made-up miners from the [demo mode](#demo-mode).
 
-With many miners the page switches to compact cards; a table view is one click away
-(screenshots with 10 simulated miners):
+**Compact** (the default with more than 6 miners): all miners on one screen.
 
-![Compact cards: 10 miners on one screen](docs/compact-10.png)
+![Compact view: 10 miners on one screen](docs/compact.png)
 
-![Table view: one row per miner](docs/table-10.png)
+**Table**: one row per miner.
+
+![Table view: one row per miner](docs/table.png)
+
+**Cards**: everything about every miner (live nonces, chips, pool, tuning).
+
+![Cards view: full cards, 4 per row](docs/cards.png)
 
 ## Supported miners
 
@@ -141,6 +146,7 @@ What they check:
   and the table view shows 15 rows and is remembered after a reload.
 - Leaderboard: when a miner's best share since boot becomes the highest, its card moves to the
   first place and glows.
+- Demo: `?demo=12` shows 12 made-up miners and makes no API requests.
 
 A screenshot of the page is saved to `test-results/dashboard.png`. The expectations are written
 for the author's three miners: adjust them at the top of `tests/dashboard.spec.ts` for your setup.
@@ -178,6 +184,20 @@ npm run build
 powershell -ExecutionPolicy Bypass -File scripts\install-autostart.ps1
 ```
 
+## Demo mode
+
+Open `http://localhost:3100/?demo=10` to see 10 made-up miners (any number up to 60) instead of
+yours: different models, history, nonces, one offline, one running hot, one with rejects; every
+~30 s one of them finds a better share and takes the lead. The data is generated in the browser
+(`lib/demo.ts`), nothing is sent to the network, and a "demo data" badge is shown in the header.
+
+The README screenshots are made from it (the dashboard must be running):
+
+```powershell
+node scripts/screenshots.mjs                         # http://localhost:3100, 10 miners
+node scripts/screenshots.mjs http://localhost:3100 15
+```
+
 ## Data and configuration
 
 - `data/miners.json`: the discovered miners (`id`, `ip`, `hostname`, `mac`, `type`, `lastSeen`).
@@ -195,12 +215,13 @@ lib/store.ts       state, miners.json, 24 h history, background poller
 lib/history.ts     history downsampling and gap detection for the chart
 lib/share-feed.ts  websocket to each miner's log, nonce/share parsing for the live feed
 lib/health.ts      problem flags (thresholds) and the leaderboard order
+lib/demo.ts        made-up miners for the demo mode (?demo=N)
 instrumentation.ts starts the poller when the server starts
 app/api/*          GET /api/miners, POST /api/rescan, GET /api/feed (SSE)
 app/page.tsx       UI: summary, view switch, leaderboard
 components/        full card (MinerCard), compact card, table, rank badge, sparkline,
                    difficulty bar, nonce feed
-scripts/           Windows autostart
+scripts/           Windows autostart, README screenshots (screenshots.mjs)
 tests/             Playwright e2e tests
 ```
 
