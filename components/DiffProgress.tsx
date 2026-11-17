@@ -6,6 +6,7 @@ export interface DiffMark {
   session?: number; // best share since boot
   last?: number; // newest nonce from the live feed
   color?: string; // the miner's colour (lib/colors.ts)
+  leader?: boolean; // #1 on the leaderboard (best share since boot): gets the crown
 }
 
 const pct = (v: number) =>
@@ -28,20 +29,34 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
   const ticks: number[] = [];
   for (let e = Math.ceil(lo / 3) * 3; e < hi; e += 3) if (e > lo) ticks.push(10 ** e);
   const sorted = [...marks].filter((m) => m.best).sort((a, b) => b.best! - a.best!);
-  // Many miners: dots would merge into a blob, so draw thin ticks for the all-time best only
-  // (the per-miner "since boot" values stay in the legend below).
+  // Many miners: draw only the all-time best, as smaller dots (the per-miner "since boot"
+  // values stay in the legend below).
   const dense = marks.length > 6;
+  const colorOf = (m: DiffMark) => m.color ?? "#f4f4f5";
+  const leader = marks.find((m) => m.leader && (m.session ?? m.best));
+  const crownAt = leader ? (leader.session ?? leader.best)! : undefined;
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3" data-testid="diff-progress">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
         <div className="text-xs text-zinc-500">
           Best share → block <span className="text-zinc-600">(log scale)</span>
-          {marks.some((m) => m.last) && (
-            <span className="ml-2 text-zinc-600">
-              <span className="inline-block h-2.5 w-[3px] translate-y-px rounded-sm bg-zinc-300" /> last nonce (miner colour)
+          <span className="ml-2 inline-flex items-center gap-2.5 text-zinc-600">
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-zinc-300" /> best ever
             </span>
-          )}
+            {!dense && (
+              <span className="inline-flex items-center gap-1">
+                <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-zinc-300" /> since boot
+              </span>
+            )}
+            {marks.some((m) => m.last) && (
+              <span className="inline-flex items-center gap-1">
+                <span className="inline-block h-2.5 w-[3px] rounded-sm bg-zinc-300" /> last nonce
+              </span>
+            )}
+            <span>· colour = miner</span>
+          </span>
         </div>
         {best > 0 && (
           <div className="text-xs text-zinc-500 tabular-nums">
@@ -51,7 +66,7 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
         )}
       </div>
 
-      <div className="relative mt-3 h-2.5 rounded-full bg-zinc-800">
+      <div className={`relative h-2.5 rounded-full bg-zinc-800 ${crownAt ? "mt-6" : "mt-3"}`}>
         {best > 0 && (
           <div
             className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-700 to-emerald-400"
@@ -71,30 +86,36 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
               style={{ left: `${pos(m.last)}%`, background: m.color ?? "#fbbf24" }}
             />
           ) : null,
-          m.session && !dense ? (
+          // Dense: only the leader's "since boot" ring, under its crown.
+          m.session && (!dense || m.leader) ? (
             <div
               key={`${m.name}-s`}
               title={`${m.name}: best since boot ${fmtDiff(m.session)}`}
-              className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-zinc-200 bg-zinc-900"
-              style={{ left: `${pos(m.session)}%` }}
+              data-testid="session-mark"
+              className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-zinc-900 ring-1 ring-zinc-950"
+              style={{ left: `${pos(m.session)}%`, borderColor: colorOf(m) }}
             />
           ) : null,
-          m.best && dense ? (
+          m.best ? (
             <div
               key={`${m.name}-b`}
               title={`${m.name}: best ever ${fmtDiff(m.best)}`}
-              className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-zinc-100 ring-1 ring-zinc-900"
-              style={{ left: `${pos(m.best)}%` }}
-            />
-          ) : m.best ? (
-            <div
-              key={`${m.name}-b`}
-              title={`${m.name}: best ever ${fmtDiff(m.best)}`}
-              className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-zinc-900 bg-zinc-100"
-              style={{ left: `${pos(m.best)}%` }}
+              data-testid="best-mark"
+              className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-zinc-950 ${dense ? "h-3 w-3" : "h-3.5 w-3.5"}`}
+              style={{ left: `${pos(m.best)}%`, background: colorOf(m) }}
             />
           ) : null,
         ])}
+        {leader && crownAt && (
+          <div
+            title={`${leader.name}: #1, best since boot ${fmtDiff(leader.session)}`}
+            data-testid="crown"
+            className="pointer-events-none absolute bottom-full mb-0.5 -translate-x-1/2 text-sm leading-none transition-[left] duration-700 ease-out"
+            style={{ left: `${pos(crownAt)}%` }}
+          >
+            👑
+          </div>
+        )}
       </div>
 
       <div className="relative mt-1 h-4 text-[10px] text-zinc-500 tabular-nums">
@@ -114,6 +135,7 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
           {sorted.map((m) => (
             <span key={m.name} className="inline-flex items-center gap-1">
               {m.color && <span className="inline-block h-2 w-2 shrink-0 rounded-[2px]" style={{ background: m.color }} />}
+              {m.leader && <span title="#1 by best share since boot">👑</span>}
               {m.name} <span className="text-zinc-300">{fmtDiff(m.best)}</span>
               {m.session ? <span className="text-zinc-600"> / {fmtDiff(m.session)} boot</span> : null}
             </span>

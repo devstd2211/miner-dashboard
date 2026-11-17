@@ -86,18 +86,20 @@ function ChipTable({ chips }: { chips: ChipStat[] }) {
   );
 }
 
-export function MinerCard({ m, now, feed, feedCollapsed = false, onCollapse, rank, flash, color }: {
+export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignRows }: {
   m: MinerView;
+  // Cards view: the card spans two rows of the page grid (subgrid), so the live nonces of all
+  // cards in a row start on the same line however tall the parameters above them are.
+  alignRows?: boolean;
   color?: string; // lib/colors.ts
   rank?: number; // leaderboard place, online miners only
   flash?: boolean; // just climbed the leaderboard
   now: number;
   feed?: NonceEvent[];
-  feedCollapsed?: boolean; // start with the nonce feed hidden (many miners on the page)
   onCollapse?: () => void; // back to the compact card
 }) {
   const s = m.snapshot;
-  const [showFeed, setShowFeed] = useState(!feedCollapsed);
+  const [showFeed, setShowFeed] = useState(false); // live nonces start collapsed
   const issues = minerIssues(m);
   const ago = Math.round((now - Date.parse(m.lastSeen)) / 1000);
 
@@ -142,22 +144,34 @@ export function MinerCard({ m, now, feed, feedCollapsed = false, onCollapse, ran
           )}
         </div>
       </div>
-      {m.online && (
-        <div className="mt-1.5">
-          <button onClick={() => setShowFeed((v) => !v)} className="text-[10px] uppercase tracking-wider text-zinc-600 hover:text-zinc-400">
-            nonces {showFeed ? "▾" : "▸"}
-          </button>
-          {showFeed && <NonceFeed events={feed} chips={s?.asicCount ?? 1} />}
-        </div>
-      )}
     </div>
   );
 
+  // Live nonces under everything else, collapsed by default.
+  const nonces = m.online ? (
+    <div className={alignRows ? "" : "pt-4"}>
+      <div className="border-t border-zinc-800 pt-2">
+        <button onClick={() => setShowFeed((v) => !v)} aria-expanded={showFeed}
+          className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 hover:text-zinc-400">
+          live nonces {showFeed ? "▾" : "▸"}
+        </button>
+        {showFeed && <div className="mt-1"><NonceFeed events={feed} chips={s?.asicCount ?? 1} /></div>}
+      </div>
+    </div>
+  ) : (
+    <div /> // keeps the second grid row when aligned
+  );
+  const layout = alignRows ? "grid" : "flex flex-col";
+  const rows = alignRows ? { gridRow: "span 2", gridTemplateRows: "subgrid", rowGap: "1rem" } : undefined;
+
   if (!s) {
     return (
-      <div className={`rounded-xl border border-red-900/60 bg-zinc-900/60 p-4 ${flash ? "rank-up" : ""}`}>
-        {header}
-        <p className="mt-3 text-sm text-zinc-500">No data yet. {m.lastError}</p>
+      <div className={`${layout} rounded-xl border border-red-900/60 bg-zinc-900/60 p-4 ${flash ? "rank-up" : ""}`} style={rows}>
+        <div className="min-w-0">
+          {header}
+          <p className="mt-3 text-sm text-zinc-500">No data yet. {m.lastError}</p>
+        </div>
+        {nonces}
       </div>
     );
   }
@@ -172,7 +186,8 @@ export function MinerCard({ m, now, feed, feedCollapsed = false, onCollapse, ran
   const hashesSinceBoot = s.uptimeSeconds && avgHr ? avgHr * 1e9 * s.uptimeSeconds : undefined;
 
   return (
-    <div className={`rounded-xl border bg-zinc-900/60 p-4 ${flash ? "rank-up" : ""} ${!m.online ? "border-red-900/60 opacity-60" : issues.length ? "border-amber-600/60" : "border-zinc-800"}`}>
+    <div className={`${layout} rounded-xl border bg-zinc-900/60 p-4 ${flash ? "rank-up" : ""} ${!m.online ? "border-red-900/60 opacity-60" : issues.length ? "border-amber-600/60" : "border-zinc-800"}`} style={rows}>
+      <div className="min-w-0">
       {header}
       {!m.online && m.lastError && <p className="mt-1 text-xs text-red-400/80">{m.lastError} · data below is stale</p>}
       {m.online && issues.length > 0 && <p className="mt-1 text-xs text-amber-400">⚠ {issues.join(" · ")}</p>}
@@ -275,6 +290,8 @@ export function MinerCard({ m, now, feed, feedCollapsed = false, onCollapse, ran
 
         {s.chips && s.chips.length > 0 && <ChipTable chips={s.chips} />}
       </div>
+      </div>
+      {nonces}
     </div>
   );
 }

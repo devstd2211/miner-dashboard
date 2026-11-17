@@ -13,7 +13,7 @@ import { fmt, fmtDiff, fmtDiffShort, fmtHash, jPerTh } from "@/lib/format";
 import type { MinersResponse, NonceEvent } from "@/lib/types";
 
 const REFRESH_MS = 5000;
-// More miners than this: compact cards by default, nonce feeds collapsed in full cards.
+// More miners than this: compact cards by default.
 const MANY = 6;
 
 type View = "full" | "compact" | "table";
@@ -255,6 +255,7 @@ export default function Home() {
                 session: m.snapshot?.bestSessionDiff,
                 last: m.online ? lastNonce(feeds[m.id])?.diff : undefined,
                 color: colors[m.id],
+                leader: ranks[m.id] === 1,
               }))}
             />
           </div>
@@ -280,9 +281,9 @@ export default function Home() {
                 m={m}
                 now={data.now}
                 feed={feeds[m.id]}
-                feedCollapsed={many}
                 rank={ranks[m.id]}
                 color={colors[m.id]}
+                alignRows={view === "full"}
                 flash={!!climbed[m.id]}
                 onCollapse={view === "compact" ? () => toggle(m.id) : undefined}
               />

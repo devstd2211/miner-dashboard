@@ -112,7 +112,9 @@ test("Feed: live nonces arrive from every miner and show up on the cards", async
   for (const m of data.miners) {
     expect(seen[m.id]?.nonce, `${m.hostname} nonce`).toMatch(/^[0-9A-F]{8}$/);
   }
-  // At least one card shows a nonce in the feed line (8 lowercase hex digits).
+  // Live nonces sit collapsed at the bottom of each card: open one, it shows a nonce
+  // (8 lowercase hex digits).
+  await page.getByRole("button", { name: "live nonces ▸" }).first().click();
   await expect(page.locator("span.font-mono, div.font-mono span").filter({ hasText: /^[0-9a-f]{8}$/ }).first()).toBeVisible();
 });
 
