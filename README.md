@@ -52,8 +52,9 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   difficulty share one line), the network difficulty
   with the current block height, and a log-scale bar from share to block difficulty
   marking every miner's best share (all-time and since boot; with more than 6 miners only
-  the all-time best, as thin ticks). Thin amber ticks show each miner's newest nonce and
-  hop along the bar as new nonces come in.
+  the all-time best, as thin ticks). Each miner has its own colour (a square next to its
+  name on the cards, in the table and in the bar's legend); a thin tick in that colour shows
+  the miner's newest nonce and hops along the bar as new nonces come in.
 - A card per miner:
   - online/offline status (offline after 30 s without a response)
   - current and 1 h hashrate vs expected (`frequency × smallCoreCount × asicCount / 1000`)

@@ -3,6 +3,7 @@ import { fmt, fmtDiff, fmtDiffShort, fmtDuration, fmtHash, jPerTh } from "@/lib/
 import { ASIC_TEMP_MAX, hashratePct, minerIssues, rejectPct, REJECT_PCT_MAX } from "@/lib/health";
 import { LiveDiff } from "./LiveDiff";
 import { pctColor } from "./MinerCard";
+import { MinerSwatch } from "./MinerSwatch";
 import { RankBadge } from "./RankBadge";
 import { Sparkline } from "./Sparkline";
 
@@ -16,8 +17,9 @@ function Mini({ label, value, cls = "text-zinc-200" }: { label: string; value: R
 }
 
 /** Small card for pages with many miners: key numbers only, "more" opens the full card. */
-export function MinerCompact({ m, now, feed, onExpand, rank, flash }: {
+export function MinerCompact({ m, now, feed, onExpand, rank, flash, color }: {
   m: MinerView;
+  color?: string;
   now: number;
   feed?: NonceEvent[];
   onExpand: () => void;
@@ -37,6 +39,7 @@ export function MinerCompact({ m, now, feed, onExpand, rank, flash }: {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className={`h-2 w-2 shrink-0 rounded-full ${m.online ? "bg-emerald-400" : "bg-red-500"}`} />
+            <MinerSwatch color={color} />
             <h2 className="truncate font-semibold">{m.hostname}</h2>
             <RankBadge rank={rank} />
           </div>

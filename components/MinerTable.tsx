@@ -4,6 +4,7 @@ import { fmt, fmtDiff, fmtDiffShort, fmtDuration, fmtHash, jPerTh } from "@/lib/
 import { ASIC_TEMP_MAX, hashratePct, minerIssues, rejectPct, REJECT_PCT_MAX, VR_TEMP_MAX } from "@/lib/health";
 import { LiveDiff } from "./LiveDiff";
 import { MinerCard, pctColor } from "./MinerCard";
+import { MinerSwatch } from "./MinerSwatch";
 import { RankBadge } from "./RankBadge";
 
 const TH = "px-2 py-1.5 font-normal whitespace-nowrap";
@@ -11,8 +12,9 @@ const TD = "px-2 py-1.5 whitespace-nowrap tabular-nums";
 const hot = (v: number | undefined, max: number) => ((v ?? 0) >= max ? "font-semibold text-red-400" : "");
 
 /** One row per miner; clicking the name opens the full card under the row. */
-export function MinerTable({ miners, now, feeds, expanded, toggle, ranks }: {
+export function MinerTable({ miners, now, feeds, expanded, toggle, ranks, colors }: {
   miners: MinerView[];
+  colors: Record<string, string>;
   ranks: Record<string, number>;
   now: number;
   feeds: Record<string, NonceEvent[]>;
@@ -55,6 +57,7 @@ export function MinerTable({ miners, now, feeds, expanded, toggle, ranks }: {
                     <button onClick={() => toggle(m.id)} className="flex items-center gap-2 text-left" title="Show the full card">
                       <span className="w-3 text-zinc-600">{open ? "▾" : "▸"}</span>
                       <span className={`h-2 w-2 shrink-0 rounded-full ${m.online ? "bg-emerald-400" : "bg-red-500"}`} />
+                      <MinerSwatch color={colors[m.id]} />
                       <span className="font-medium">{m.hostname}</span>
                       <RankBadge rank={ranks[m.id]} />
                     </button>
@@ -95,7 +98,7 @@ export function MinerTable({ miners, now, feeds, expanded, toggle, ranks }: {
                   <tr>
                     <td colSpan={cols} className="p-2">
                       <div className="max-w-[720px]">
-                        <MinerCard m={m} now={now} feed={feeds[m.id]} rank={ranks[m.id]} />
+                        <MinerCard m={m} now={now} feed={feeds[m.id]} rank={ranks[m.id]} color={colors[m.id]} />
                       </div>
                     </td>
                   </tr>

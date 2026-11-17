@@ -7,6 +7,7 @@ import { MinerCompact } from "@/components/MinerCompact";
 import { MinerTable } from "@/components/MinerTable";
 import { lastNonce } from "@/components/LiveDiff";
 import { createDemo, type Demo } from "@/lib/demo";
+import { minerColors } from "@/lib/colors";
 import { sortMiners } from "@/lib/health";
 import { fmt, fmtDiff, fmtDiffShort, fmtHash, jPerTh } from "@/lib/format";
 import type { MinersResponse, NonceEvent } from "@/lib/types";
@@ -129,6 +130,7 @@ export default function Home() {
   const ranks: Record<string, number> = {};
   miners.filter((m) => m.online).forEach((m, i) => (ranks[m.id] = i + 1));
   const ranksKey = JSON.stringify(ranks);
+  const colors = minerColors(miners.map((m) => m.id));
 
   useEffect(() => {
     const now: Record<string, number> = JSON.parse(ranksKey);
@@ -252,6 +254,7 @@ export default function Home() {
                 best: m.snapshot?.bestDiff,
                 session: m.snapshot?.bestSessionDiff,
                 last: m.online ? lastNonce(feeds[m.id])?.diff : undefined,
+                color: colors[m.id],
               }))}
             />
           </div>
@@ -264,13 +267,13 @@ export default function Home() {
       )}
 
       {data && view === "table" && miners.length > 0 && (
-        <MinerTable miners={miners} now={data.now} feeds={feeds} expanded={expanded} toggle={toggle} ranks={ranks} />
+        <MinerTable miners={miners} now={data.now} feeds={feeds} expanded={expanded} toggle={toggle} ranks={ranks} colors={colors} />
       )}
       {data && view !== "table" && (
         <section className={`grid gap-4 ${view === "compact" ? "items-start" : ""}`} style={view === "compact" ? grid(300, 8) : grid(440, miners.length > 3 ? 4 : 3)}>
           {miners.map((m) =>
             view === "compact" && !expanded.has(m.id) ? (
-              <MinerCompact key={m.id} m={m} now={data.now} feed={feeds[m.id]} onExpand={() => toggle(m.id)} rank={ranks[m.id]} flash={!!climbed[m.id]} />
+              <MinerCompact key={m.id} m={m} now={data.now} feed={feeds[m.id]} onExpand={() => toggle(m.id)} rank={ranks[m.id]} color={colors[m.id]} flash={!!climbed[m.id]} />
             ) : (
               <MinerCard
                 key={m.id}
@@ -279,6 +282,7 @@ export default function Home() {
                 feed={feeds[m.id]}
                 feedCollapsed={many}
                 rank={ranks[m.id]}
+                color={colors[m.id]}
                 flash={!!climbed[m.id]}
                 onCollapse={view === "compact" ? () => toggle(m.id) : undefined}
               />

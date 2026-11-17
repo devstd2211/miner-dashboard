@@ -7,6 +7,7 @@ import { ASIC_TEMP_MAX, isHighCurrent, minerIssues, rejectPct, REJECT_PCT_MAX, V
 import { poolStatsUrl } from "@/lib/pools";
 import { LiveDiff } from "./LiveDiff";
 import { NonceFeed } from "./NonceFeed";
+import { MinerSwatch } from "./MinerSwatch";
 import { RankBadge } from "./RankBadge";
 import { Sparkline } from "./Sparkline";
 
@@ -85,8 +86,9 @@ function ChipTable({ chips }: { chips: ChipStat[] }) {
   );
 }
 
-export function MinerCard({ m, now, feed, feedCollapsed = false, onCollapse, rank, flash }: {
+export function MinerCard({ m, now, feed, feedCollapsed = false, onCollapse, rank, flash, color }: {
   m: MinerView;
+  color?: string; // lib/colors.ts
   rank?: number; // leaderboard place, online miners only
   flash?: boolean; // just climbed the leaderboard
   now: number;
@@ -105,6 +107,7 @@ export function MinerCard({ m, now, feed, feedCollapsed = false, onCollapse, ran
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${m.online ? "bg-emerald-400" : "bg-red-500"}`} />
+            <MinerSwatch color={color} />
             <h2 className="truncate text-lg font-semibold">{m.hostname}</h2>
             <RankBadge rank={rank} />
           </div>

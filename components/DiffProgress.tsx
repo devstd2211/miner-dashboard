@@ -5,6 +5,7 @@ export interface DiffMark {
   best?: number; // all-time best share
   session?: number; // best share since boot
   last?: number; // newest nonce from the live feed
+  color?: string; // the miner's colour (lib/colors.ts)
 }
 
 const pct = (v: number) =>
@@ -14,7 +15,7 @@ const pct = (v: number) =>
  * Best shares on a log scale from the pool's share difficulty (left edge) to the network
  * difficulty (right edge, where a share would be a block). Linear progress would be an
  * invisible sliver: a 13.7G share is 0.009% of a 148T network difficulty.
- * Thin amber ticks are the newest nonce of each miner; they hop along with the live feed
+ * Thin ticks in each miner's colour are its newest nonce; they hop along with the live feed
  * (nonces below the left edge stay at the edge).
  */
 export function DiffProgress({ from, to, marks }: { from: number; to: number; marks: DiffMark[] }) {
@@ -38,7 +39,7 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
           Best share → block <span className="text-zinc-600">(log scale)</span>
           {marks.some((m) => m.last) && (
             <span className="ml-2 text-zinc-600">
-              <span className="text-amber-400">│</span> last nonce
+              <span className="inline-block h-2.5 w-[3px] translate-y-px rounded-sm bg-zinc-300" /> last nonce (miner colour)
             </span>
           )}
         </div>
@@ -66,8 +67,8 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
               key={`${m.name}-l`}
               title={`${m.name}: last nonce ${fmtDiff(m.last)}`}
               data-testid="live-mark"
-              className="absolute top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-amber-400/80 transition-[left] duration-500 ease-out"
-              style={{ left: `${pos(m.last)}%` }}
+              className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm ring-1 ring-zinc-950 transition-[left] duration-500 ease-out"
+              style={{ left: `${pos(m.last)}%`, background: m.color ?? "#fbbf24" }}
             />
           ) : null,
           m.session && !dense ? (
@@ -111,7 +112,8 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
       {sorted.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-x-4 text-xs text-zinc-500 tabular-nums">
           {sorted.map((m) => (
-            <span key={m.name}>
+            <span key={m.name} className="inline-flex items-center gap-1">
+              {m.color && <span className="inline-block h-2 w-2 shrink-0 rounded-[2px]" style={{ background: m.color }} />}
               {m.name} <span className="text-zinc-300">{fmtDiff(m.best)}</span>
               {m.session ? <span className="text-zinc-600"> / {fmtDiff(m.session)} boot</span> : null}
             </span>
