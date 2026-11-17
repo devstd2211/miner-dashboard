@@ -36,7 +36,7 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
     window, a card is never narrower than 440 px). With more than 6 miners the nonce feeds
     start collapsed.
   - **Compact**: small cards with hashrate, % of expected, chart, power, J/TH, ASIC temperature,
-    shares, share difficulty and best share; "more" opens the full card in place. This is the
+    shares, share difficulty, last nonce, best share since boot and ever, uptime; "more" opens the full card in place. This is the
     default when there are more than 6 miners.
   - **Table**: one row per miner; click the name to open its full card under the row.
 - Leaderboard: miners are ordered by their best share since boot, the leader gets a 🏆 #1 badge,
@@ -52,7 +52,8 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   difficulty share one line), the network difficulty
   with the current block height, and a log-scale bar from share to block difficulty
   marking every miner's best share (all-time and since boot; with more than 6 miners only
-  the all-time best, as thin ticks).
+  the all-time best, as thin ticks). Thin amber ticks show each miner's newest nonce and
+  hop along the bar as new nonces come in.
 - A card per miner:
   - online/offline status (offline after 30 s without a response)
   - current and 1 h hashrate vs expected (`frequency × smallCoreCount × asicCount / 1000`)
@@ -62,6 +63,8 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   - pool: host, connected, fallback in use, accepted/rejected shares and reject %, ping; the host links
     to the pool's stats page for the wallet in the stratum user (Braiins Solo:
     `solo.braiins.com/stats/<address>`, ckpool solo: `<host>/users/<address>`; other pools: no link)
+  - difficulty of the newest nonce, live from the nonce feed (amber when it was sent to the
+    pool as a share); also in the compact cards and the table
   - best difficulty, uptime; hashes computed since boot (estimate: average hashrate × uptime)
     and, on AxeOS 2.x, the exact lifetime counter `totalHashes` (NerdQAxe does not report one)
   - link to the miner's own web UI (AxeOS / NerdQAxe), opens in a new tab
