@@ -52,6 +52,14 @@ test("UI: dashboard renders summary, cards and chip tables without errors", asyn
 
   // One card per miner, each with a sparkline section and a pool section.
   await expect(page.getByRole("heading", { level: 2 })).toHaveCount(3);
+  // Parameters and stats/chips sit in collapsed blocks: open them all
+  // (3 "parameters", 2 "stats · chips" on the NerdQAxe miners, 1 "stats" on the Bitaxe).
+  await expect(page.getByRole("button", { name: "parameters ▸" })).toHaveCount(3);
+  await expect(page.getByRole("button", { name: /^stats( · chips)? ▸$/ })).toHaveCount(3);
+  for (const name of ["parameters ▸", /^stats( · chips)? ▸$/]) {
+    const closed = page.getByRole("button", { name });
+    while ((await closed.count()) > 0) await closed.first().click();
+  }
   // Chip tables only on the two NerdQAxe miners: 8 + 4 rows.
   await expect(page.locator("table")).toHaveCount(2);
   await expect(page.locator("table tbody tr")).toHaveCount(12);

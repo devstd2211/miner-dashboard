@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DiffProgress } from "@/components/DiffProgress";
-import { MinerCard } from "@/components/MinerCard";
+import { FOLDS_CLOSED, MinerCard, type FoldKey, type Folds } from "@/components/MinerCard";
 import { MinerCompact } from "@/components/MinerCompact";
 import { MinerTable } from "@/components/MinerTable";
 import { lastNonce } from "@/components/LiveDiff";
@@ -23,6 +23,7 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "table", label: "Table" },
 ];
 const VIEW_KEY = "miners.view";
+const FOLDS_KEY = "miners.folds"; // open card blocks in the Cards view
 
 // Cards fill the width: as many columns as fit at the minimum width, but at most maxCols
 // (a track is never narrower than 1/maxCols of the row; 16px = gap-4).
@@ -47,6 +48,7 @@ export default function Home() {
   const [feeds, setFeeds] = useState<Record<string, NonceEvent[]>>({});
   const [chosenView, setChosenView] = useState<View | null>(null); // null: pick by miner count
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [folds, setFolds] = useState<Folds>(FOLDS_CLOSED);
   // Miners that just climbed the leaderboard: id -> time, cleared after the glow animation.
   const [climbed, setClimbed] = useState<Record<string, number>>({});
   const prevRanks = useRef<Record<string, number> | null>(null);
@@ -64,6 +66,8 @@ export default function Home() {
     try {
       const v = localStorage.getItem(VIEW_KEY);
       if (v === "full" || v === "compact" || v === "table") setChosenView(v);
+      const f = JSON.parse(localStorage.getItem(FOLDS_KEY) ?? "null");
+      if (f && typeof f === "object") setFolds({ ...FOLDS_CLOSED, ...f });
     } catch {}
   }, []);
   function chooseView(v: View) {
@@ -73,6 +77,14 @@ export default function Home() {
       localStorage.setItem(VIEW_KEY, v);
     } catch {}
   }
+  const toggleFold = (k: FoldKey) =>
+    setFolds((f) => {
+      const next = { ...f, [k]: !f[k] };
+      try {
+        localStorage.setItem(FOLDS_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   const toggle = (id: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -284,6 +296,8 @@ export default function Home() {
                 rank={ranks[m.id]}
                 color={colors[m.id]}
                 alignRows={view === "full"}
+                folds={view === "full" ? folds : undefined}
+                onFold={view === "full" ? toggleFold : undefined}
                 flash={!!climbed[m.id]}
                 onCollapse={view === "compact" ? () => toggle(m.id) : undefined}
               />

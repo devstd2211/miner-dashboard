@@ -33,8 +33,10 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
 
 - Three views, switched in the header (the choice is remembered in the browser):
   - **Cards**: full cards; 3 columns for up to 3 miners, 4 columns for more (fewer on a narrow
-    window, a card is never narrower than 440 px). The live nonces of the cards in one row
-    start on the same line, however tall the parameters above them are.
+    window, a card is never narrower than 440 px). Under the chart each card has three
+    collapsed blocks: **parameters** (power, thermal, tuning, pool), **stats · chips** and
+    **live nonces**. Opening a block opens it on every card (remembered in the browser), and
+    each block starts on the same line in all cards of a row.
   - **Compact**: small cards with hashrate, % of expected, chart, power, J/TH, ASIC temperature,
     shares, share difficulty, last nonce, best share since boot and ever, uptime; "more" opens the full card in place. This is the
     default when there are more than 6 miners.
@@ -55,7 +57,7 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   and in the bar's legend): a filled dot is the best share ever, a ring the best since boot
   (with more than 6 miners only the leader's ring), a thin tick the newest nonce, hopping
   along the bar as new nonces come in. A 👑 crown sits over the leader's ring.
-- A card per miner:
+- A card per miner (name, hashrate and chart always visible; the rest in collapsed blocks):
   - online/offline status (offline after 30 s without a response)
   - current and 1 h hashrate vs expected (`frequency × smallCoreCount × asicCount / 1000`)
   - power, input voltage, current (highlighted above 90% of the max current), J/TH

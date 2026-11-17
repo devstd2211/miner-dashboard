@@ -18,9 +18,11 @@ for (const view of ["full", "compact", "table"]) {
   const rows = view === "table" ? page.locator('[data-testid="miner-table"] > tbody > tr') : page.getByRole("heading", { level: 2 });
   await rows.nth(count - 1).waitFor();
   await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" }); // dev-mode badge
-  // Live nonces start collapsed: open them for the picture.
-  const closed = page.getByRole("button", { name: "live nonces ▸" });
-  if (view === "full") while ((await closed.count()) > 0) await closed.first().click();
+  // Parameters, stats · chips and live nonces start collapsed: open them for the picture.
+  for (const name of ["parameters ▸", /^stats( · chips)? ▸$/, "live nonces ▸"]) {
+    const closed = page.getByRole("button", { name });
+    if (view === "full") while ((await closed.count()) > 0) await closed.first().click();
+  }
   await page.waitForTimeout(500);
   const file = `${docs}${view === "full" ? "cards" : view}.png`;
   await page.screenshot({ path: file, fullPage: true });

@@ -50,6 +50,31 @@ function PoolHost({ host, port, user }: { host?: string; port?: number; user?: s
   );
 }
 
+/** A collapsible block under the chart (parameters, stats · chips, live nonces), closed by default. */
+function Fold({ title, open, onToggle, aligned, children }: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  aligned?: boolean; // in a subgrid row: the row gap does the spacing
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={aligned ? "" : "pt-4"}>
+      <div className="border-t border-zinc-800 pt-2">
+        <button onClick={onToggle} aria-expanded={open}
+          className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 hover:text-zinc-400">
+          {title} {open ? "▾" : "▸"}
+        </button>
+        {open && <div className="mt-1">{children}</div>}
+      </div>
+    </div>
+  );
+}
+
+export type FoldKey = "params" | "stats" | "nonces";
+export type Folds = Record<FoldKey, boolean>;
+export const FOLDS_CLOSED: Folds = { params: false, stats: false, nonces: false };
+
 export const pctColor = (p: number) => (p >= 95 ? "text-emerald-400" : p >= 85 ? "text-amber-400" : "text-red-400");
 
 function errColor(errPct: number) {
@@ -86,11 +111,15 @@ function ChipTable({ chips }: { chips: ChipStat[] }) {
   );
 }
 
-export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignRows }: {
+export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignRows, folds, onFold }: {
   m: MinerView;
-  // Cards view: the card spans two rows of the page grid (subgrid), so the live nonces of all
-  // cards in a row start on the same line however tall the parameters above them are.
+  // Cards view: the card spans four rows of the page grid (subgrid): summary, parameters,
+  // stats · chips, live nonces. Each block then starts on the same line in all cards of a row, open or not.
   alignRows?: boolean;
+  // Open blocks shared by all cards (Cards view): opening one opens it everywhere. Without
+  // them the card keeps its own state (a single full card in the compact or table view).
+  folds?: Folds;
+  onFold?: (k: FoldKey) => void;
   color?: string; // lib/colors.ts
   rank?: number; // leaderboard place, online miners only
   flash?: boolean; // just climbed the leaderboard
@@ -99,7 +128,9 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
   onCollapse?: () => void; // back to the compact card
 }) {
   const s = m.snapshot;
-  const [showFeed, setShowFeed] = useState(false); // live nonces start collapsed
+  const [ownFolds, setOwnFolds] = useState<Folds>(FOLDS_CLOSED); // all blocks start collapsed
+  const open = folds ?? ownFolds;
+  const toggle = (k: FoldKey) => (onFold ? onFold(k) : setOwnFolds((f) => ({ ...f, [k]: !f[k] })));
   const issues = minerIssues(m);
   const ago = Math.round((now - Date.parse(m.lastSeen)) / 1000);
 
@@ -147,22 +178,16 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
     </div>
   );
 
-  // Live nonces under everything else, collapsed by default.
+  // Live nonces under everything else.
   const nonces = m.online ? (
-    <div className={alignRows ? "" : "pt-4"}>
-      <div className="border-t border-zinc-800 pt-2">
-        <button onClick={() => setShowFeed((v) => !v)} aria-expanded={showFeed}
-          className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 hover:text-zinc-400">
-          live nonces {showFeed ? "▾" : "▸"}
-        </button>
-        {showFeed && <div className="mt-1"><NonceFeed events={feed} chips={s?.asicCount ?? 1} /></div>}
-      </div>
-    </div>
+    <Fold title="live nonces" open={open.nonces} onToggle={() => toggle("nonces")} aligned={alignRows}>
+      <NonceFeed events={feed} chips={s?.asicCount ?? 1} />
+    </Fold>
   ) : (
-    <div /> // keeps the second grid row when aligned
+    <div /> // keeps the grid row when aligned
   );
   const layout = alignRows ? "grid" : "flex flex-col";
-  const rows = alignRows ? { gridRow: "span 2", gridTemplateRows: "subgrid", rowGap: "1rem" } : undefined;
+  const rows = alignRows ? { gridRow: "span 4", gridTemplateRows: "subgrid", rowGap: "1rem" } : undefined;
 
   if (!s) {
     return (
@@ -171,6 +196,8 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
           {header}
           <p className="mt-3 text-sm text-zinc-500">No data yet. {m.lastError}</p>
         </div>
+        <div />
+        <div />
         {nonces}
       </div>
     );
@@ -213,8 +240,10 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
       <div className="mt-3">
         <Sparkline points={m.history} expected={s.expectedHashRate} />
       </div>
+      </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+      <Fold title="parameters" open={open.params} onToggle={() => toggle("params")} aligned={alignRows}>
+      <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
         <Section title="Power">
           <Stat label="Power" value={fmt(s.power, 1, " W")} />
           <Stat label="Input" value={fmt(s.voltage, 2, " V")} />
@@ -268,7 +297,11 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
           />
           <Stat label="Ping" value={fmt(s.pool.pingMs, 0, " ms")} />
         </Section>
+      </div>
+      </Fold>
 
+      <Fold title={s.chips?.length ? "stats · chips" : "stats"} open={open.stats} onToggle={() => toggle("stats")} aligned={alignRows}>
+      <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
         <Section title="Stats">
           <Stat
             label="Share difficulty (pool)"
@@ -290,7 +323,7 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
 
         {s.chips && s.chips.length > 0 && <ChipTable chips={s.chips} />}
       </div>
-      </div>
+      </Fold>
       {nonces}
     </div>
   );
