@@ -5,6 +5,7 @@ import { DiffProgress } from "@/components/DiffProgress";
 import { MinerCard } from "@/components/MinerCard";
 import { MinerCompact } from "@/components/MinerCompact";
 import { MinerTable } from "@/components/MinerTable";
+import { lastNonce } from "@/components/LiveDiff";
 import { createDemo, type Demo } from "@/lib/demo";
 import { sortMiners } from "@/lib/health";
 import { fmt, fmtDiff, fmtDiffShort, fmtHash, jPerTh } from "@/lib/format";
@@ -250,6 +251,7 @@ export default function Home() {
                 name: m.hostname,
                 best: m.snapshot?.bestDiff,
                 session: m.snapshot?.bestSessionDiff,
+                last: m.online ? lastNonce(feeds[m.id])?.diff : undefined,
               }))}
             />
           </div>
@@ -268,7 +270,7 @@ export default function Home() {
         <section className={`grid gap-4 ${view === "compact" ? "items-start" : ""}`} style={view === "compact" ? grid(300, 8) : grid(440, miners.length > 3 ? 4 : 3)}>
           {miners.map((m) =>
             view === "compact" && !expanded.has(m.id) ? (
-              <MinerCompact key={m.id} m={m} now={data.now} onExpand={() => toggle(m.id)} rank={ranks[m.id]} flash={!!climbed[m.id]} />
+              <MinerCompact key={m.id} m={m} now={data.now} feed={feeds[m.id]} onExpand={() => toggle(m.id)} rank={ranks[m.id]} flash={!!climbed[m.id]} />
             ) : (
               <MinerCard
                 key={m.id}

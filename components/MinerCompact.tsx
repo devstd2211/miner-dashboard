@@ -1,6 +1,7 @@
-import type { MinerView } from "@/lib/types";
+import type { MinerView, NonceEvent } from "@/lib/types";
 import { fmt, fmtDiff, fmtDiffShort, fmtDuration, fmtHash, jPerTh } from "@/lib/format";
 import { ASIC_TEMP_MAX, hashratePct, minerIssues, rejectPct, REJECT_PCT_MAX } from "@/lib/health";
+import { LiveDiff } from "./LiveDiff";
 import { pctColor } from "./MinerCard";
 import { RankBadge } from "./RankBadge";
 import { Sparkline } from "./Sparkline";
@@ -15,9 +16,10 @@ function Mini({ label, value, cls = "text-zinc-200" }: { label: string; value: R
 }
 
 /** Small card for pages with many miners: key numbers only, "more" opens the full card. */
-export function MinerCompact({ m, now, onExpand, rank, flash }: {
+export function MinerCompact({ m, now, feed, onExpand, rank, flash }: {
   m: MinerView;
   now: number;
+  feed?: NonceEvent[];
   onExpand: () => void;
   rank?: number;
   flash?: boolean;
@@ -84,6 +86,9 @@ export function MinerCompact({ m, now, onExpand, rank, flash }: {
             />
             <Mini label="Share diff" value={fmtDiffShort(s.poolDifficulty)} cls="font-semibold text-emerald-400" />
             <Mini label="Best ever" value={fmtDiff(s.bestDiff)} cls="font-semibold text-emerald-400" />
+            <Mini label="Last nonce" value={m.online ? <LiveDiff events={feed} className="font-semibold" /> : "—"} />
+            <Mini label="Best boot" value={fmtDiff(s.bestSessionDiff)} cls="text-emerald-400" />
+            <Mini label="Uptime" value={fmtDuration(s.uptimeSeconds)} cls="text-zinc-400" />
           </div>
         </>
       )}

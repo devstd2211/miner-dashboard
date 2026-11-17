@@ -4,6 +4,7 @@ export interface DiffMark {
   name: string;
   best?: number; // all-time best share
   session?: number; // best share since boot
+  last?: number; // newest nonce from the live feed
 }
 
 const pct = (v: number) =>
@@ -13,6 +14,8 @@ const pct = (v: number) =>
  * Best shares on a log scale from the pool's share difficulty (left edge) to the network
  * difficulty (right edge, where a share would be a block). Linear progress would be an
  * invisible sliver: a 13.7G share is 0.009% of a 148T network difficulty.
+ * Thin amber ticks are the newest nonce of each miner; they hop along with the live feed
+ * (nonces below the left edge stay at the edge).
  */
 export function DiffProgress({ from, to, marks }: { from: number; to: number; marks: DiffMark[] }) {
   const lo = Math.log10(from);
@@ -31,7 +34,14 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3" data-testid="diff-progress">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <div className="text-xs text-zinc-500">Best share → block <span className="text-zinc-600">(log scale)</span></div>
+        <div className="text-xs text-zinc-500">
+          Best share → block <span className="text-zinc-600">(log scale)</span>
+          {marks.some((m) => m.last) && (
+            <span className="ml-2 text-zinc-600">
+              <span className="text-amber-400">│</span> last nonce
+            </span>
+          )}
+        </div>
         {best > 0 && (
           <div className="text-xs text-zinc-500 tabular-nums">
             <span className="text-sm font-semibold text-zinc-200">{fmtDiff(best)}</span> ·{" "}
@@ -51,6 +61,15 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
           <div key={t} className="absolute inset-y-0 w-px bg-zinc-950/70" style={{ left: `${pos(t)}%` }} />
         ))}
         {marks.flatMap((m) => [
+          m.last ? (
+            <div
+              key={`${m.name}-l`}
+              title={`${m.name}: last nonce ${fmtDiff(m.last)}`}
+              data-testid="live-mark"
+              className="absolute top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-amber-400/80 transition-[left] duration-500 ease-out"
+              style={{ left: `${pos(m.last)}%` }}
+            />
+          ) : null,
           m.session && !dense ? (
             <div
               key={`${m.name}-s`}

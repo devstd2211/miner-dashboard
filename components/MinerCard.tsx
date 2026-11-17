@@ -5,6 +5,7 @@ import type { ChipStat, MinerView, NonceEvent } from "@/lib/types";
 import { fmt, fmtDiff, fmtDiffShort, fmtDuration, fmtHash, fmtHashes, jPerTh } from "@/lib/format";
 import { ASIC_TEMP_MAX, isHighCurrent, minerIssues, rejectPct, REJECT_PCT_MAX, VR_TEMP_MAX } from "@/lib/health";
 import { poolStatsUrl } from "@/lib/pools";
+import { LiveDiff } from "./LiveDiff";
 import { NonceFeed } from "./NonceFeed";
 import { RankBadge } from "./RankBadge";
 import { Sparkline } from "./Sparkline";
@@ -256,6 +257,11 @@ export function MinerCard({ m, now, feed, feedCollapsed = false, onCollapse, ran
             value={fmtDiffShort(s.poolDifficulty)}
             good={s.poolDifficulty !== undefined}
             title="Share target the pool assigned to this miner (vardiff)"
+          />
+          <Stat
+            label="Last nonce diff"
+            value={m.online ? <LiveDiff events={feed} className="font-semibold" /> : "—"}
+            title="Difficulty of the newest nonce the ASICs found (live, from the miner's log); amber = it was a share"
           />
           <Stat label="Best diff (session)" value={fmtDiff(s.bestSessionDiff)} good={s.bestSessionDiff !== undefined} />
           <Stat label="Best diff (all-time)" value={fmtDiff(s.bestDiff)} good={s.bestDiff !== undefined} />

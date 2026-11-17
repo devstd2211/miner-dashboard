@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import type { MinerView, NonceEvent } from "@/lib/types";
 import { fmt, fmtDiff, fmtDiffShort, fmtDuration, fmtHash, jPerTh } from "@/lib/format";
 import { ASIC_TEMP_MAX, hashratePct, minerIssues, rejectPct, REJECT_PCT_MAX, VR_TEMP_MAX } from "@/lib/health";
+import { LiveDiff } from "./LiveDiff";
 import { MinerCard, pctColor } from "./MinerCard";
 import { RankBadge } from "./RankBadge";
 
@@ -18,7 +19,7 @@ export function MinerTable({ miners, now, feeds, expanded, toggle, ranks }: {
   expanded: Set<string>;
   toggle: (id: string) => void;
 }) {
-  const cols = 13;
+  const cols = 14;
   return (
     <div className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/60">
       <table className="w-full text-sm" data-testid="miner-table">
@@ -34,6 +35,7 @@ export function MinerTable({ miners, now, feeds, expanded, toggle, ranks }: {
             <th className={TH}>VRM</th>
             <th className={TH}>Shares ↑ / ↓</th>
             <th className={TH}>Share diff</th>
+            <th className={TH} title="Difficulty of the newest nonce (live); amber = it was a share">Last nonce</th>
             <th className={TH}>Best boot</th>
             <th className={TH}>Best ever</th>
             <th className={TH}>Uptime</th>
@@ -80,6 +82,7 @@ export function MinerTable({ miners, now, feeds, expanded, toggle, ranks }: {
                         </span>
                       </td>
                       <td className={`${TD} font-semibold text-emerald-400`}>{fmtDiffShort(s.poolDifficulty)}</td>
+                      <td className={TD}>{m.online ? <LiveDiff events={feeds[m.id]} /> : "—"}</td>
                       <td className={`${TD} text-emerald-400`}>{fmtDiff(s.bestSessionDiff)}</td>
                       <td className={`${TD} font-semibold text-emerald-400`}>{fmtDiff(s.bestDiff)}</td>
                       <td className={`${TD} text-zinc-400`}>{fmtDuration(s.uptimeSeconds)}</td>
