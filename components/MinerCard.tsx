@@ -116,7 +116,7 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
   // Cards view: the card spans four rows of the page grid (subgrid): summary, parameters,
   // stats · chips, live nonces. Each block then starts on the same line in all cards of a row, open or not.
   alignRows?: boolean;
-  // Open blocks shared by all cards (Cards view): opening one opens it everywhere. Without
+  // Open blocks shared by the cards of one grid row (Cards view): opening one opens it across the row. Without
   // them the card keeps its own state (a single full card in the compact or table view).
   folds?: Folds;
   onFold?: (k: FoldKey) => void;

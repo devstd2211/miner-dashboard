@@ -23,7 +23,7 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "table", label: "Table" },
 ];
 const VIEW_KEY = "miners.view";
-const FOLDS_KEY = "miners.folds"; // open card blocks in the Cards view
+const FOLDS_KEY = "miners.folds"; // open card blocks per grid row in the Cards view
 
 // Cards fill the width: as many columns as fit at the minimum width, but at most maxCols
 // (a track is never narrower than 1/maxCols of the row; 16px = gap-4).
@@ -48,7 +48,11 @@ export default function Home() {
   const [feeds, setFeeds] = useState<Record<string, NonceEvent[]>>({});
   const [chosenView, setChosenView] = useState<View | null>(null); // null: pick by miner count
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [folds, setFolds] = useState<Folds>(FOLDS_CLOSED);
+  // Cards view: open blocks per grid row (row index -> folds), so opening a block on one card
+  // opens it for its row neighbours only. Columns depend on the window width, measured below.
+  const [folds, setFolds] = useState<Record<number, Folds>>({});
+  const [cols, setCols] = useState(1);
+  const gridRef = useRef<HTMLElement>(null);
   // Miners that just climbed the leaderboard: id -> time, cleared after the glow animation.
   const [climbed, setClimbed] = useState<Record<string, number>>({});
   const prevRanks = useRef<Record<string, number> | null>(null);
@@ -67,7 +71,7 @@ export default function Home() {
       const v = localStorage.getItem(VIEW_KEY);
       if (v === "full" || v === "compact" || v === "table") setChosenView(v);
       const f = JSON.parse(localStorage.getItem(FOLDS_KEY) ?? "null");
-      if (f && typeof f === "object") setFolds({ ...FOLDS_CLOSED, ...f });
+      if (f && typeof f === "object" && !("params" in f)) setFolds(f); // skip the old page-wide format
     } catch {}
   }, []);
   function chooseView(v: View) {
@@ -77,9 +81,10 @@ export default function Home() {
       localStorage.setItem(VIEW_KEY, v);
     } catch {}
   }
-  const toggleFold = (k: FoldKey) =>
+  const toggleFold = (row: number, k: FoldKey) =>
     setFolds((f) => {
-      const next = { ...f, [k]: !f[k] };
+      const cur = f[row] ?? FOLDS_CLOSED;
+      const next = { ...f, [row]: { ...cur, [k]: !cur[k] } };
       try {
         localStorage.setItem(FOLDS_KEY, JSON.stringify(next));
       } catch {}
@@ -158,6 +163,18 @@ export default function Home() {
   }, [ranksKey]);
   const many = miners.length > MANY;
   const view: View = chosenView ?? (many ? "compact" : "full");
+  const hasCards = !!data && view === "full" && miners.length > 0;
+
+  // Number of grid columns = number of resolved tracks (auto-fill, changes with the width).
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!hasCards || !el) return;
+    const measure = () => setCols(Math.max(1, getComputedStyle(el).gridTemplateColumns.split(" ").filter(Boolean).length));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasCards]);
   const online = miners.filter((m) => m.online && m.snapshot);
   const totalHash = online.reduce((s, m) => s + m.snapshot!.hashRate, 0);
   const totalPower = online.reduce((s, m) => s + m.snapshot!.power, 0);
@@ -283,8 +300,8 @@ export default function Home() {
         <MinerTable miners={miners} now={data.now} feeds={feeds} expanded={expanded} toggle={toggle} ranks={ranks} colors={colors} />
       )}
       {data && view !== "table" && (
-        <section className={`grid gap-4 ${view === "compact" ? "items-start" : ""}`} style={view === "compact" ? grid(300, 8) : grid(440, miners.length > 3 ? 4 : 3)}>
-          {miners.map((m) =>
+        <section ref={gridRef} className={`grid gap-4 ${view === "compact" ? "items-start" : ""}`} style={view === "compact" ? grid(300, 8) : grid(440, miners.length > 3 ? 4 : 3)}>
+          {miners.map((m, i) =>
             view === "compact" && !expanded.has(m.id) ? (
               <MinerCompact key={m.id} m={m} now={data.now} feed={feeds[m.id]} onExpand={() => toggle(m.id)} rank={ranks[m.id]} color={colors[m.id]} flash={!!climbed[m.id]} />
             ) : (
@@ -296,8 +313,8 @@ export default function Home() {
                 rank={ranks[m.id]}
                 color={colors[m.id]}
                 alignRows={view === "full"}
-                folds={view === "full" ? folds : undefined}
-                onFold={view === "full" ? toggleFold : undefined}
+                folds={view === "full" ? (folds[Math.floor(i / cols)] ?? FOLDS_CLOSED) : undefined}
+                onFold={view === "full" ? (k) => toggleFold(Math.floor(i / cols), k) : undefined}
                 flash={!!climbed[m.id]}
                 onCollapse={view === "compact" ? () => toggle(m.id) : undefined}
               />
