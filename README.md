@@ -182,12 +182,12 @@ Disable (removes the task and stops the server):
 powershell -ExecutionPolicy Bypass -File scripts\uninstall-autostart.ps1
 ```
 
-After updating the code, stop the server, rebuild and start it again:
+After updating the code (`git pull`, `npm install`), rebuild and restart in one go. The script
+stops the task and the server (one UAC prompt if the server runs in session 0), runs
+`npm run build` and starts the task again:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\uninstall-autostart.ps1
-npm run build
-powershell -ExecutionPolicy Bypass -File scripts\install-autostart.ps1
+powershell -ExecutionPolicy Bypass -File scripts\update.ps1
 ```
 
 ## Demo mode
