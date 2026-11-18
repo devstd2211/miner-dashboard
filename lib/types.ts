@@ -98,6 +98,7 @@ export interface BestRecord {
   hostname: string;
   diff: number;
   allTime: boolean; // also beat the miner's all-time best
+  whileOff?: boolean; // found while the dashboard was stopped: `t` is when it noticed
 }
 
 /** One miner as returned by GET /api/miners. */

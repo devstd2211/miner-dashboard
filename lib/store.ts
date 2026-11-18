@@ -1,19 +1,21 @@
 // In-memory state of all miners: list (persisted to data/miners.json), latest readings,
-// 24 h hashrate history (in memory, not persisted) and the background poller. Each poll also
+// 24 h hashrate history (saved every minute to data/history-24h.json) and the background poller. Each poll also
 // feeds the best-share log (records.ts), the 30-day history (long-history.ts) and alerts.ts.
 
 import fs from "node:fs/promises";
-import path from "node:path";
 import { readMiner } from "./miner-api";
 import { detectSubnets, scanNetwork } from "./scanner";
 import { downsample, HISTORY_WINDOW_MS } from "./history";
+import { dataFile, readJsonFile, writeJsonFile } from "./json-file";
 import { ensureFeed, recentBest } from "./share-feed";
 import { getRecords, loadRecords, noteBest } from "./records";
-import { loadLongHistory, noteLong } from "./long-history";
+import { loadLongHistory, noteLong, saveLongHistory } from "./long-history";
 import { alertRecord, checkAlerts } from "./alerts";
 import type { HistoryPoint, MinerRecord, MinerSnapshot, MinersResponse, ScanStatus } from "./types";
 
-const DATA_FILE = path.join(process.cwd(), "data", "miners.json");
+const DATA_FILE = dataFile("miners.json");
+// The 24 h chart, so a dashboard restart does not wipe it (1-minute averages, saved with the list).
+const HISTORY_FILE = dataFile("history-24h.json");
 const POLL_INTERVAL_MS = 10_000;
 const OFFLINE_AFTER_MS = 30_000;
 const SAVE_EVERY_MS = 60_000;
@@ -59,6 +61,15 @@ async function load(): Promise<boolean> {
   try {
     const list = JSON.parse(await fs.readFile(DATA_FILE, "utf8")) as MinerRecord[];
     list.forEach(addRecord);
+    const saved = await readJsonFile<Record<string, HistoryPoint[]>>(HISTORY_FILE);
+    const now = Date.now();
+    for (const [id, points] of Object.entries(saved ?? {})) {
+      const m = store.miners.get(id);
+      if (m && Array.isArray(points)) {
+        m.history = points;
+        pruneHistory(m, now);
+      }
+    }
     return true;
   } catch {
     return false; // missing or broken file -> scan
@@ -66,12 +77,12 @@ async function load(): Promise<boolean> {
 }
 
 async function save() {
-  const list = [...store.miners.values()].map((m) => m.record);
-  await fs.mkdir(path.dirname(DATA_FILE), { recursive: true });
-  const tmp = DATA_FILE + ".tmp";
-  await fs.writeFile(tmp, JSON.stringify(list, null, 2));
-  await fs.rename(tmp, DATA_FILE);
   store.lastSaveAt = Date.now();
+  await Promise.all([
+    writeJsonFile(DATA_FILE, () => [...store.miners.values()].map((m) => m.record)),
+    writeJsonFile(HISTORY_FILE, () => Object.fromEntries([...store.miners].map(([id, m]) => [id, downsample(m.history, 1440)]))),
+    saveLongHistory(),
+  ]);
 }
 
 /** Scan the LAN and merge results by id (MAC/hostname), so a new IP updates the old entry. */

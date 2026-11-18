@@ -62,7 +62,10 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   not sent to the pool spread out in the darker zone left of the "share" line.
 - Best share log at the bottom of the page: every new best share since boot (skipping the first
   10 minutes after a miner reboots), 🏆 when it also beat the all-time best. Kept in
-  `data/best-shares.json`, so records survive miner reboots.
+  `data/best-shares.json`, so records survive miner reboots. The last best shares of every miner
+  are saved too (`data/best-last.json`): a record found while the dashboard was stopped is
+  logged when it starts again, marked "while off" (if the miner rebooted meanwhile, only a new
+  all-time best can be told apart).
 - Notifications: 🔔 in the header turns on browser notifications (while the tab is open) for
   new problems and new best shares. Without a browser, the server can send the same alerts to
   Telegram, see [Data and configuration](#data-and-configuration); a problem has to last a
@@ -111,8 +114,9 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   5 minutes), to find it at its new address. If another device now answers on a miner's old IP,
   its data is not shown under that miner's name.
 - **Polling.** Only the server talks to the miners (no CORS issues), every 10 s. The 24 h
-  hashrate history is kept in memory (points older than 24 h are dropped) and is lost on restart.
-  While the PC sleeps nothing is polled, so the chart shows a gap for that time.
+  hashrate history is kept in memory and saved every minute (1-minute averages) to
+  `data/history-24h.json`, so a restart does not wipe the chart. While the PC is off or asleep
+  nothing is polled, so the charts show a gap for that time.
 - **Live feed.** The server keeps one websocket per miner to its log stream
   (`ws://IP/api/ws`, the same log the miner's web UI shows) and parses the
   "nonce found / mining.submit / pool result" lines of both firmwares (`lib/share-feed.ts`).
@@ -226,7 +230,9 @@ node scripts/screenshots.mjs http://localhost:3100 15
 - `data/miners.json`: the discovered miners (`id`, `ip`, `hostname`, `mac`, `type`, `lastSeen`).
   Delete it to force a full scan on the next start. To forget a miner you've retired, remove
   it from this file while the server is stopped.
-- `data/best-shares.json`: the best share log (last 500 records).
+- `data/best-shares.json`: the best share log (last 500 records); `data/best-last.json`: the last
+  best shares seen of every miner.
+- `data/history-24h.json`: the 24 h chart, 1-minute averages.
 - `data/history-long.json`: 15-minute hashrate and ASIC temperature averages, last 30 days.
 - `SCAN_SUBNETS`: optional environment variable for when subnet detection gets it wrong.
   Example: `SCAN_SUBNETS=192.168.68,192.168.1`.
@@ -236,6 +242,8 @@ node scripts/screenshots.mjs http://localhost:3100 15
   `https://api.telegram.org/bot<token>/getUpdates`, then put both in `.env.local` next to
   `package.json` and restart the dashboard (`scripts\update.ps1`). Without them alerts only go
   to `logs\server.log`.
+- `DATA_DIR`: optional, another folder for the `data/` files, e.g. for a dev server running next
+  to the dashboard without touching its data.
 
 ## Project layout
 
@@ -246,7 +254,8 @@ lib/store.ts       state, miners.json, 24 h history, background poller
 lib/history.ts     history downsampling and gap detection for the chart
 lib/share-feed.ts  websocket to each miner's log, nonce/share parsing for the live feed
 lib/health.ts      problem flags (thresholds) and the leaderboard order
-lib/records.ts     best share log (data/best-shares.json)
+lib/records.ts     best share log (data/best-shares.json, best-last.json)
+lib/json-file.ts   data/*.json reads and queued atomic writes
 lib/long-history.ts 30-day history, 15-minute averages (data/history-long.json)
 lib/alerts.ts      problem / recovery / best share alerts: server log and Telegram
 lib/demo.ts        made-up miners for the demo mode (?demo=N)

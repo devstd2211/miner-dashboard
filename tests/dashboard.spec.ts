@@ -61,8 +61,10 @@ test("UI: dashboard renders summary, cards and chip tables without errors", asyn
     while ((await closed.count()) > 0) await closed.first().click();
   }
   // Chip tables only on the two NerdQAxe miners: 8 + 4 rows.
-  await expect(page.locator("table")).toHaveCount(2);
-  await expect(page.locator("table tbody tr")).toHaveCount(12);
+  // (the best share log at the bottom is a table too: leave it out)
+  const chipTables = page.locator("table:not([data-testid=best-records] *)");
+  await expect(chipTables).toHaveCount(2);
+  await expect(chipTables.locator("tbody tr")).toHaveCount(12);
 
   // Each card links to the miner's own web UI at its IP.
   const data: MinersResponse = await (await page.request.get("/api/miners")).json();
@@ -73,7 +75,7 @@ test("UI: dashboard renders summary, cards and chip tables without errors", asyn
   await expect(page.locator('a[href^="https://solo.braiins.com/stats/bc1"]')).toHaveCount(data.miners.length);
 
   // Error % cells are colored green / amber / red.
-  const colors = await page.locator("table tbody td:last-child").evaluateAll((tds) =>
+  const colors = await chipTables.locator("tbody td:last-child").evaluateAll((tds) =>
     tds.map((td) => td.className.match(/text-(emerald|amber|red)-400/)?.[1]),
   );
   expect(colors.every(Boolean)).toBe(true);

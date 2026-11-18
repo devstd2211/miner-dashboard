@@ -55,5 +55,6 @@ export function checkAlerts(miners: MinerView[], now = Date.now()) {
 }
 
 export function alertRecord(r: BestRecord) {
-  send(`${r.allTime ? "🏆 New all-time best" : "⛏ New best since boot"} on ${r.hostname}: ${fmtDiff(r.diff)}`);
+  const off = r.whileOff ? " (found while the dashboard was off)" : "";
+  send(`${r.allTime ? "🏆 New all-time best" : "⛏ New best since boot"} on ${r.hostname}: ${fmtDiff(r.diff)}${off}`);
 }

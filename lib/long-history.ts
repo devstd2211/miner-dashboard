@@ -2,12 +2,11 @@
 // persisted to data/history-long.json so it survives dashboard restarts. The 24 h chart keeps
 // using the finer in-memory history (lib/store.ts).
 
-import fs from "node:fs/promises";
-import path from "node:path";
 import { downsample } from "./history";
+import { dataFile, readJsonFile, writeJsonFile } from "./json-file";
 import type { HistoryPoint } from "./types";
 
-const FILE = path.join(process.cwd(), "data", "history-long.json");
+const FILE = dataFile("history-long.json");
 const BUCKET_MS = 15 * 60_000;
 export const LONG_KEEP_MS = 30 * 86_400_000;
 
@@ -27,17 +26,23 @@ const state = (g.__longHistory ??= { points: {}, acc: {}, loaded: false });
 export async function loadLongHistory() {
   if (state.loaded) return;
   state.loaded = true;
-  try {
-    const data = JSON.parse(await fs.readFile(FILE, "utf8"));
-    if (data && typeof data === "object") state.points = data;
-  } catch {} // no file yet
+  const data = await readJsonFile<Record<string, HistoryPoint[]>>(FILE);
+  if (data && typeof data === "object") state.points = data;
 }
 
-async function save() {
-  await fs.mkdir(path.dirname(FILE), { recursive: true });
-  await fs.writeFile(FILE + ".tmp", JSON.stringify(state.points));
-  await fs.rename(FILE + ".tmp", FILE);
-}
+// The running slot is saved too (as a finished point), so stopping the dashboard loses nothing.
+const save = () =>
+  writeJsonFile(FILE, () =>
+    Object.fromEntries(
+      Object.keys({ ...state.points, ...state.acc }).map((id) => {
+        const a = state.acc[id];
+        return [id, [...(state.points[id] ?? []), ...(a?.n ? [toPoint(a)] : [])]];
+      }),
+    ),
+  );
+
+/** Called every minute by the store. */
+export const saveLongHistory = () => save().catch((e) => console.error("[long-history] save failed", e));
 
 const toPoint = (a: Acc): HistoryPoint => ({
   t: a.slot * BUCKET_MS + BUCKET_MS / 2,

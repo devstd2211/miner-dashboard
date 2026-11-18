@@ -31,7 +31,9 @@ export function BestRecords({ records, now, colors }: { records: BestRecord[]; n
           <tbody>
             {records.slice(0, SHOW).map((r) => (
               <tr key={`${r.id}-${r.t}`} className="border-t border-zinc-800/60">
-                <td className="py-1 text-zinc-500" title={new Date(r.t).toLocaleString()}>{ago(now - r.t)}</td>
+                <td className="py-1 text-zinc-500" title={r.whileOff ? "Found while the dashboard was off; this is when it noticed" : new Date(r.t).toLocaleString()}>
+                  {r.whileOff ? "while off, seen " : ""}{ago(now - r.t)}
+                </td>
                 <td className="py-1">
                   <span className="inline-flex items-center gap-1.5">
                     <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: colors[r.id] ?? "#71717a" }} />
