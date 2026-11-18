@@ -1,12 +1,16 @@
 // In-memory state of all miners: list (persisted to data/miners.json), latest readings,
-// 24 h hashrate history (in memory, not persisted) and the background poller.
+// 24 h hashrate history (in memory, not persisted) and the background poller. Each poll also
+// feeds the best-share log (records.ts), the 30-day history (long-history.ts) and alerts.ts.
 
 import fs from "node:fs/promises";
 import path from "node:path";
 import { readMiner } from "./miner-api";
 import { detectSubnets, scanNetwork } from "./scanner";
 import { downsample, HISTORY_WINDOW_MS } from "./history";
-import { ensureFeed } from "./share-feed";
+import { ensureFeed, recentBest } from "./share-feed";
+import { getRecords, loadRecords, noteBest } from "./records";
+import { loadLongHistory, noteLong } from "./long-history";
+import { alertRecord, checkAlerts } from "./alerts";
 import type { HistoryPoint, MinerRecord, MinerSnapshot, MinersResponse, ScanStatus } from "./types";
 
 const DATA_FILE = path.join(process.cwd(), "data", "miners.json");
@@ -100,6 +104,9 @@ async function pollOne(m: MinerState) {
     // DHCP may have handed this IP to another device: don't show its data under this name.
     if (id !== m.record.id) throw new Error(`IP ${m.record.ip} now belongs to ${snapshot.hostname || id}`);
     const now = Date.now();
+    const rec = noteBest(m.record.id, snapshot.hostname || m.record.hostname, m.snapshot, snapshot);
+    if (rec) alertRecord(rec);
+    noteLong(m.record.id, now, snapshot.hashRate, snapshot.asicTemp);
     m.snapshot = snapshot;
     m.lastOkAt = now;
     m.lastError = undefined;
@@ -121,6 +128,7 @@ async function pollAll() {
 async function tick() {
   await pollAll();
   const now = Date.now();
+  checkAlerts(getState().miners, now);
   // Rescan if a miner went missing, or if nothing was found yet (e.g. the first scan ran at
   // boot before the network was up).
   const someoneLost =
@@ -147,6 +155,7 @@ export function ensureStarted() {
   if (store.started) return;
   store.started = true;
   (async () => {
+    await Promise.all([loadRecords(), loadLongHistory()]);
     const hasFile = await load();
     if (hasFile) await pollAll();
     else await rescan();
@@ -167,7 +176,8 @@ export function getState(): MinersResponse {
       lastError: m.lastError,
       snapshot: m.snapshot,
       history: downsample(m.history),
+      recentBest: recentBest(m.record.id),
     }))
     .sort((a, b) => a.hostname.localeCompare(b.hostname)); // stable order, cards do not jump
-  return { now, miners, scan: store.scan };
+  return { now, miners, scan: store.scan, records: getRecords() };
 }

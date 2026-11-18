@@ -13,13 +13,14 @@ const pct = (v: number) =>
   v >= 1 ? `${v.toFixed(1)}%` : v >= 0.01 ? `${v.toFixed(3)}%` : `${v.toPrecision(2)}%`;
 
 /**
- * Best shares on a log scale from the pool's share difficulty (left edge) to the network
- * difficulty (right edge, where a share would be a block). Linear progress would be an
- * invisible sliver: a 13.7G share is 0.009% of a 148T network difficulty.
+ * Best shares on a log scale up to the network difficulty (right edge, where a share would be
+ * a block). Linear progress would be an invisible sliver: a 13.7G share is 0.009% of a 148T
+ * network difficulty. The left edge sits a bit below the pool's share difficulty (`share`,
+ * marked with a line): nonces under it are found but not sent to the pool.
  * Thin ticks in each miner's colour are its newest nonce; they hop along with the live feed
  * (nonces below the left edge stay at the edge).
  */
-export function DiffProgress({ from, to, marks }: { from: number; to: number; marks: DiffMark[] }) {
+export function DiffProgress({ from, to, share, marks }: { from: number; to: number; share?: number; marks: DiffMark[] }) {
   const lo = Math.log10(from);
   const hi = Math.log10(to);
   const pos = (d: number) => Math.min(100, Math.max(0, ((Math.log10(d) - lo) / (hi - lo)) * 100));
@@ -73,9 +74,24 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
             style={{ width: `${pos(best)}%` }}
           />
         )}
+        {share && (
+          <div
+            className="absolute inset-y-0 left-0 rounded-l-full bg-zinc-950/50"
+            style={{ width: `${pos(share)}%` }}
+            title="Below the share difficulty: nonces found but not sent to the pool"
+          />
+        )}
         {ticks.map((t) => (
           <div key={t} className="absolute inset-y-0 w-px bg-zinc-950/70" style={{ left: `${pos(t)}%` }} />
         ))}
+        {share && (
+          <div
+            data-testid="share-line"
+            className="absolute -inset-y-1 w-0.5 -translate-x-1/2 rounded bg-emerald-300/80"
+            style={{ left: `${pos(share)}%` }}
+            title={`Share difficulty ${fmtDiff(share)}: a nonce at or above it goes to the pool`}
+          />
+        )}
         {marks.flatMap((m) => [
           m.last ? (
             <div
@@ -120,8 +136,13 @@ export function DiffProgress({ from, to, marks }: { from: number; to: number; ma
 
       <div className="relative mt-1 h-4 text-[10px] text-zinc-500 tabular-nums">
         <span className="absolute left-0">{fmtDiffShort(from)}</span>
+        {share && (
+          <span className="absolute -translate-x-1/2 text-emerald-300/80" style={{ left: `${pos(share)}%` }}>
+            share {fmtDiffShort(share)}
+          </span>
+        )}
         {ticks
-          .filter((t) => pos(t) > 8 && pos(t) < 92)
+          .filter((t) => pos(t) > 8 && pos(t) < 92 && !(share && Math.abs(pos(t) - pos(share)) < 6))
           .map((t) => (
             <span key={t} className="absolute -translate-x-1/2" style={{ left: `${pos(t)}%` }}>
               {fmtDiffShort(t)}

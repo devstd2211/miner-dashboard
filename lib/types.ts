@@ -88,6 +88,16 @@ export interface NonceEvent {
 export interface HistoryPoint {
   t: number; // ms since epoch
   hr: number; // GH/s
+  temp?: number; // ASIC °C (long history only)
+}
+
+/** A new best share since boot, logged by the server (data/best-shares.json). */
+export interface BestRecord {
+  t: number; // ms, when the dashboard noticed it
+  id: string;
+  hostname: string;
+  diff: number;
+  allTime: boolean; // also beat the miner's all-time best
 }
 
 /** One miner as returned by GET /api/miners. */
@@ -96,6 +106,7 @@ export interface MinerView extends MinerRecord {
   lastError?: string;
   snapshot?: MinerSnapshot; // last successful reading
   history: HistoryPoint[];
+  recentBest?: number; // best nonce difficulty of the last RECENT_MIN minutes (live log feed)
 }
 
 export interface ScanStatus {
@@ -109,4 +120,8 @@ export interface MinersResponse {
   now: number;
   miners: MinerView[];
   scan: ScanStatus;
+  records: BestRecord[]; // newest first
 }
+
+/** Window of MinerView.recentBest. */
+export const RECENT_MIN = 10;

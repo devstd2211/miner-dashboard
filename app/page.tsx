@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DiffProgress } from "@/components/DiffProgress";
-import { FOLDS_CLOSED, MinerCard, type FoldKey, type Folds } from "@/components/MinerCard";
+import { fetchHistory, FOLDS_CLOSED, MinerCard, type FoldKey, type Folds, type LoadHistory } from "@/components/MinerCard";
+import { BestRecords } from "@/components/BestRecords";
+import { useNotifications } from "@/components/useNotifications";
 import { MinerCompact } from "@/components/MinerCompact";
 import { MinerTable } from "@/components/MinerTable";
 import { lastNonce } from "@/components/LiveDiff";
@@ -59,6 +61,12 @@ export default function Home() {
   // ?demo=N shows N made-up miners instead of the real ones (README screenshots, layout tests).
   const demo = useRef<Demo | null>(null);
   const [mode, setMode] = useState<"pending" | "live" | "demo">("pending");
+  const notify = useNotifications(data);
+  // Long chart ranges: from the server, or made up in demo mode (no API calls there).
+  const loadHistory = useCallback<LoadHistory>(
+    (id, days) => (demo.current ? Promise.resolve(demo.current.longHistory(id, days)) : fetchHistory(id, days)),
+    [],
+  );
 
   useEffect(() => {
     const n = Number(new URLSearchParams(window.location.search).get("demo"));
@@ -229,6 +237,16 @@ export default function Home() {
               </button>
             ))}
           </div>
+          {notify.supported && (
+            <button
+              onClick={notify.toggle}
+              aria-pressed={notify.on}
+              title={notify.on ? "Browser notifications on: new problems and best shares. Click to turn off." : "Turn on browser notifications for new problems and best shares"}
+              className={`rounded-md border px-2.5 py-1.5 text-sm ${notify.on ? "border-amber-500/60 bg-zinc-800 text-amber-400" : "border-zinc-700 bg-zinc-900 text-zinc-500 hover:bg-zinc-800"}`}
+            >
+              {notify.on ? "🔔" : "🔕"}
+            </button>
+          )}
           <button
             onClick={rescan}
             disabled={!!scanning}
@@ -276,7 +294,8 @@ export default function Home() {
           />
           <div className="col-span-2 md:col-span-3 xl:col-span-4">
             <DiffProgress
-              from={poolDiffMin ?? 1000}
+              from={(poolDiffMin ?? 1000) / 100}
+              share={poolDiffMin}
               to={networkDiff}
               marks={miners.map((m) => ({
                 name: m.hostname,
@@ -297,7 +316,7 @@ export default function Home() {
       )}
 
       {data && view === "table" && miners.length > 0 && (
-        <MinerTable miners={miners} now={data.now} feeds={feeds} expanded={expanded} toggle={toggle} ranks={ranks} colors={colors} />
+        <MinerTable miners={miners} now={data.now} feeds={feeds} expanded={expanded} toggle={toggle} ranks={ranks} colors={colors} loadHistory={loadHistory} />
       )}
       {data && view !== "table" && (
         <section ref={gridRef} className={`grid gap-4 ${view === "compact" ? "items-start" : ""}`} style={view === "compact" ? grid(300, 8) : grid(440, miners.length > 3 ? 4 : 3)}>
@@ -317,11 +336,13 @@ export default function Home() {
                 onFold={view === "full" ? (k) => toggleFold(Math.floor(i / cols), k) : undefined}
                 flash={!!climbed[m.id]}
                 onCollapse={view === "compact" ? () => toggle(m.id) : undefined}
+                loadHistory={loadHistory}
               />
             ),
           )}
         </section>
       )}
+      {data && miners.length > 0 && <BestRecords records={data.records ?? []} now={data.now} colors={colors} />}
     </main>
   );
 }

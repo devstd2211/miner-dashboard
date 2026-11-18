@@ -2,7 +2,8 @@
 // no network access. Used for README screenshots and to try the layout with many miners.
 // The data is deterministic (fixed seed); every refresh adds a little noise, and now and then
 // a miner finds a better share and climbs the leaderboard.
-import type { ChipStat, HistoryPoint, MinersResponse, MinerSnapshot, MinerType, MinerView, NonceEvent } from "./types";
+import { downsample } from "./history";
+import { RECENT_MIN, type BestRecord, type ChipStat, type HistoryPoint, type MinersResponse, type MinerSnapshot, type MinerType, type MinerView, type NonceEvent } from "./types";
 
 interface Model {
   type: MinerType;
@@ -49,6 +50,7 @@ interface DemoMiner {
   view: MinerView;
   model: Model;
   expected: number; // GH/s
+  recent: { t: number; d: number }[]; // best nonce per tick, last RECENT_MIN minutes
 }
 
 export interface Demo {
@@ -56,6 +58,8 @@ export interface Demo {
   tick(): MinersResponse;
   /** Nonce feeds as /api/feed would send them, by miner id. */
   feeds(): Record<string, NonceEvent[]>;
+  /** What /api/history would return: 15-minute points over the last `days`. */
+  longHistory(id: string, days: number): HistoryPoint[];
 }
 
 export function createDemo(count: number): Demo {
@@ -132,7 +136,15 @@ export function createDemo(count: number): Demo {
       snapshot,
       history,
     };
-    return { view, model, expected };
+    // Best nonces of the last minutes: a few hundred times the share difficulty.
+    const recent = Array.from({ length: 10 }, (_, k) => ({ t: start - k * 55_000, d: poolDifficulty * 10 ** (rnd() * 2.6) }));
+    return { view, model, expected, recent };
+  });
+
+  // A few best-share records over the last days, newest first.
+  const records: BestRecord[] = Array.from({ length: Math.min(8, count) }, (_, k) => {
+    const v = miners[(k * 3 + 1) % count].view;
+    return { t: start - (k + 1) * 7.3 * 3_600_000, id: v.id, hostname: v.hostname, diff: logBetween(2e8, 4e10), allTime: k === 3 };
   });
 
   // A few things to look at: one miner offline, one running hot, one with too many rejects.
@@ -165,6 +177,12 @@ export function createDemo(count: number): Demo {
         }
         feeds[view.id] = nonceFeed(s, rnd, now);
       }
+      for (const m of miners) {
+        const best = Math.max(0, ...(feeds[m.view.id] ?? []).map((e) => e.diff ?? 0));
+        if (best) m.recent.push({ t: now, d: best });
+        m.recent = m.recent.filter((r) => r.t > now - RECENT_MIN * 60_000);
+        m.view.recentBest = m.view.online && m.recent.length ? Math.max(...m.recent.map((r) => r.d)) : undefined;
+      }
       // About every 30 s a miner other than the leader finds a better share and takes the lead.
       const online = miners.filter((m) => m.view.online).map((m) => m.view.snapshot!);
       if (ticks > 1 && online.length > 1 && rnd() < 1 / 6) {
@@ -172,15 +190,36 @@ export function createDemo(count: number): Demo {
         const others = online.filter((s) => s.bestSessionDiff !== top);
         const lucky = others[Math.floor(rnd() * others.length)];
         lucky.bestSessionDiff = top * around(1.4, 0.2);
+        const allTime = lucky.bestSessionDiff > (lucky.bestDiff ?? 0);
         lucky.bestDiff = Math.max(lucky.bestDiff ?? 0, lucky.bestSessionDiff);
+        const v = miners.find((m) => m.view.snapshot === lucky)!.view;
+        records.unshift({ t: now, id: v.id, hostname: v.hostname, diff: lucky.bestSessionDiff, allTime });
       }
       return {
         now,
         miners: miners.map((m) => structuredClone(m.view)),
         scan: { scanning: false, lastScanAt: new Date(start).toISOString(), lastScanFound: count, subnets: ["192.168.1"] },
+        records: records.slice(0, 50),
       };
     },
     feeds: () => ({ ...feeds }),
+    longHistory(id, days) {
+      const i = miners.findIndex((m) => m.view.id === id);
+      if (i < 0) return [];
+      const { expected, view } = miners[i];
+      const r = rng(7000 + i);
+      const step = 15 * 60_000;
+      const n = Math.round((days * 86_400_000) / step);
+      const temp0 = view.snapshot?.asicTemp ?? 55;
+      const points: HistoryPoint[] = [];
+      for (let k = 0; k < n; k++) {
+        const t = start - (n - 1 - k) * step;
+        if (k % 700 > 690) continue; // now and then a few hours with no data
+        const day = Math.sin((t / 86_400_000) * 2 * Math.PI); // warmer by day
+        points.push({ t, hr: expected * (1 + (r() + r() - 1) * 0.02 - 0.01 * day), temp: temp0 + 2.5 * day + (r() - 0.5) });
+      }
+      return downsample(points, 300); // like the server
+    },
   };
 }
 

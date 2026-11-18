@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { ChipStat, MinerView, NonceEvent } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { RECENT_MIN, type ChipStat, type HistoryPoint, type MinerView, type NonceEvent } from "@/lib/types";
 import { fmt, fmtDiff, fmtDiffShort, fmtDuration, fmtHash, fmtHashes, jPerTh } from "@/lib/format";
 import { ASIC_TEMP_MAX, isHighCurrent, minerIssues, rejectPct, REJECT_PCT_MAX, VR_TEMP_MAX } from "@/lib/health";
 import { poolStatsUrl } from "@/lib/pools";
@@ -111,7 +111,53 @@ function ChipTable({ chips }: { chips: ChipStat[] }) {
   );
 }
 
-export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignRows, folds, onFold }: {
+export type LoadHistory = (id: string, days: number) => Promise<HistoryPoint[]>;
+
+/** Long history from the server (lib/long-history.ts); demo mode passes its own loader. */
+export const fetchHistory: LoadHistory = async (id, days) => {
+  const res = await fetch(`/api/history?id=${encodeURIComponent(id)}&days=${days}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()).points;
+};
+
+const RANGES = [
+  { days: 0, label: "24h" }, // the in-memory history that comes with every refresh
+  { days: 7, label: "7d" },
+  { days: 30, label: "30d" },
+];
+
+/** Hashrate chart with a 24h / 7d / 30d switch; the long ranges also draw the ASIC temperature. */
+function HistoryChart({ m, expected, loadHistory }: { m: MinerView; expected?: number; loadHistory: LoadHistory }) {
+  const [days, setDays] = useState(0);
+  const [long, setLong] = useState<{ days: number; points: HistoryPoint[] } | null>(null);
+  useEffect(() => {
+    if (!days) return;
+    let alive = true;
+    const load = () => loadHistory(m.id, days).then((points) => alive && setLong({ days, points })).catch(() => {});
+    load();
+    const id = setInterval(load, 5 * 60_000); // a new 15-minute point now and then
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [days, m.id, loadHistory]);
+  const points = days ? (long?.days === days ? long.points : []) : m.history;
+  return (
+    <div className="mt-3">
+      <div className="mb-1 flex justify-end gap-1 text-[10px]" role="group" aria-label="Chart range">
+        {RANGES.map((r) => (
+          <button key={r.label} onClick={() => setDays(r.days)} aria-pressed={days === r.days}
+            className={`rounded px-1.5 py-px ${days === r.days ? "bg-zinc-700 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}>
+            {r.label}
+          </button>
+        ))}
+      </div>
+      <Sparkline points={points} expected={expected} />
+    </div>
+  );
+}
+
+export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignRows, folds, onFold, loadHistory = fetchHistory }: {
   m: MinerView;
   // Cards view: the card spans four rows of the page grid (subgrid): summary, parameters,
   // stats · chips, live nonces. Each block then starts on the same line in all cards of a row, open or not.
@@ -126,6 +172,7 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
   now: number;
   feed?: NonceEvent[];
   onCollapse?: () => void; // back to the compact card
+  loadHistory?: LoadHistory;
 }) {
   const s = m.snapshot;
   const [ownFolds, setOwnFolds] = useState<Folds>(FOLDS_CLOSED); // all blocks start collapsed
@@ -237,9 +284,7 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
         </div>
       </div>
 
-      <div className="mt-3">
-        <Sparkline points={m.history} expected={s.expectedHashRate} />
-      </div>
+      <HistoryChart m={m} expected={s.expectedHashRate} loadHistory={loadHistory} />
       </div>
 
       <Fold title="parameters" open={open.params} onToggle={() => toggle("params")} aligned={alignRows}>
@@ -313,6 +358,11 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
             label="Last nonce diff"
             value={m.online ? <LiveDiff events={feed} className="font-semibold" /> : "—"}
             title="Difficulty of the newest nonce the ASICs found (live, from the miner's log); amber = it was a share"
+          />
+          <Stat
+            label={`Best nonce (${RECENT_MIN} min)`}
+            value={m.online ? fmtDiffShort(m.recentBest) : "—"}
+            title={`Best nonce difficulty of the last ${RECENT_MIN} minutes (live, every nonce the ASICs found)`}
           />
           <Stat label="Best diff (session)" value={fmtDiff(s.bestSessionDiff)} good={s.bestSessionDiff !== undefined} />
           <Stat label="Best diff (all-time)" value={fmtDiff(s.bestDiff)} good={s.bestDiff !== undefined} />

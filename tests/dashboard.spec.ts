@@ -201,3 +201,59 @@ test("Demo: ?demo=12 shows 12 made-up miners without calling the miners API", as
   await expect(page.getByText("🏆 #1")).toHaveCount(1);
   expect(apiCalls).toBe(0);
 });
+
+test("API: best nonce of the last minutes, best-share log and long history", async ({ request }) => {
+  // The 10-minute best comes from the live log feed: give it a few seconds after a restart.
+  let data: MinersResponse | undefined;
+  for (let i = 0; i < 15; i++) {
+    data = await (await request.get("/api/miners")).json();
+    if (data!.miners.every((m) => !m.online || m.recentBest)) break;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  expect(Array.isArray(data!.records)).toBe(true);
+  for (const m of data!.miners.filter((m) => m.online)) {
+    expect(m.recentBest, `${m.hostname} recentBest`).toBeGreaterThan(0);
+  }
+  const res = await request.get(`/api/history?id=${encodeURIComponent(data!.miners[0].id)}&days=7`);
+  expect(res.ok()).toBe(true);
+  const { points } = await res.json();
+  expect(Array.isArray(points)).toBe(true);
+  expect((await request.get("/api/history")).status()).toBe(400); // id is required
+});
+
+test("Demo: card blocks open per grid row, not for the whole page", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 }); // 4 cards per row
+  await page.addInitScript(() => {
+    localStorage.setItem("miners.view", "full");
+    localStorage.removeItem("miners.folds");
+  });
+  await page.goto("/?demo=10");
+  await expect(page.getByRole("heading", { level: 2 })).toHaveCount(10);
+  const params = page.getByRole("button", { name: /^parameters/ });
+  const open = async () => (await params.allTextContents()).map((t) => (t.includes("▾") ? 1 : 0)).join("");
+  await params.nth(5).click(); // second row: cards 5..8
+  await expect.poll(open).toBe("0000111100");
+  await page.setViewportSize({ width: 1000, height: 1080 }); // 2 per row
+  await params.nth(0).click(); // first row: cards 1..2
+  await expect.poll(open).toBe("1111000000");
+});
+
+test("Demo: 10-minute best, share line, best-share log and 7d chart without API calls", async ({ page }) => {
+  let apiCalls = 0;
+  page.on("request", (r) => r.url().includes("/api/") && apiCalls++);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.addInitScript(() => localStorage.setItem("miners.view", "full"));
+  await page.goto("/?demo=6");
+  await expect(page.getByRole("heading", { level: 2 })).toHaveCount(6);
+  await expect(page.getByTestId("share-line")).toHaveCount(1);
+  await page.getByRole("button", { name: /^stats/ }).first().click();
+  await expect(page.getByText("Best nonce (10 min)").first()).toBeVisible();
+  await expect(page.getByText("Best nonce (10 min)").first().locator("..")).toContainText(/\d/);
+  // Long chart range: the temperature line appears.
+  await page.getByRole("button", { name: "7d" }).first().click();
+  await expect(page.getByTestId("temp-line").first()).toBeAttached();
+  // Best-share log opens and lists records.
+  await page.getByTestId("best-records").locator("summary").click();
+  await expect(page.getByTestId("best-records").locator("tbody tr").first()).toBeVisible();
+  expect(apiCalls).toBe(0);
+});

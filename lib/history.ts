@@ -21,20 +21,26 @@ export function downsample(history: HistoryPoint[], maxPoints = MAX_POINTS): His
   let slot = Math.floor(history[0].t / bucketMs);
   let sum = 0;
   let n = 0;
+  let tSum = 0; // temperature, when the points have it
+  let tN = 0;
   let lastT = 0;
+  const flush = () => out.push(tN ? { t: lastT, hr: sum / n, temp: tSum / tN } : { t: lastT, hr: sum / n });
   for (const p of history) {
     const s = Math.floor(p.t / bucketMs);
     if (s !== slot && n) {
-      out.push({ t: lastT, hr: sum / n });
-      sum = 0;
-      n = 0;
+      flush();
+      sum = n = tSum = tN = 0;
     }
     slot = s;
     sum += p.hr;
     n++;
+    if (p.temp !== undefined) {
+      tSum += p.temp;
+      tN++;
+    }
     lastT = p.t;
   }
-  if (n) out.push({ t: lastT, hr: sum / n });
+  if (n) flush();
   return out;
 }
 

@@ -9,7 +9,9 @@ export const REJECT_PCT_MAX = 1;
 export const hashratePct = (hr?: number, expected?: number) => (hr !== undefined && expected ? (hr / expected) * 100 : undefined);
 export const rejectPct = (accepted: number, rejected: number) =>
   accepted + rejected ? (rejected / (accepted + rejected)) * 100 : 0;
-export const isHighCurrent = (a?: number, max?: number) => (a !== undefined && max ? a > max * 0.9 : false);
+// 98%: a NerdQAxe++ normally runs at 95-97% of its 10 A limit, that is not a problem.
+export const HIGH_CURRENT_PCT = 98;
+export const isHighCurrent = (a?: number, max?: number) => (a !== undefined && max ? a > (max * HIGH_CURRENT_PCT) / 100 : false);
 
 /** Short labels of what is wrong with a miner; empty when all is well. */
 export function minerIssues(m: MinerView): string[] {

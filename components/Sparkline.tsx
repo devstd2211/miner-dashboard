@@ -43,6 +43,15 @@ export function Sparkline({ points, expected, compact }: { points: HistoryPoint[
     (run, i) => `${lines[i]}L${x(run[run.length - 1].t).toFixed(1)},${H}L${x(run[0].t).toFixed(1)},${H}Z`,
   );
   const spanH = (t1 - t0) / 3_600_000;
+  // Long history also has the ASIC temperature: a thin second line on its own scale.
+  const temps = points.filter((p) => p.temp !== undefined).map((p) => p.temp!);
+  const tMin = Math.min(...temps) - 1;
+  const tMax = Math.max(...temps) + 1;
+  const yT = (v: number) => H - ((v - tMin) / (tMax - tMin)) * H;
+  const tempLines = temps.length > 1
+    ? runs.map((run) => run.filter((p) => p.temp !== undefined)
+        .map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${yT(p.temp!).toFixed(1)}`).join(""))
+    : [];
 
   return (
     <div>
@@ -57,6 +66,10 @@ export function Sparkline({ points, expected, compact }: { points: HistoryPoint[
           {lines.map((d, i) => (
             <path key={i} d={d} fill="none" stroke="rgb(245 158 11)" strokeWidth="1.5" strokeLinecap="round"
               vectorEffect="non-scaling-stroke" />
+          ))}
+          {tempLines.map((d, i) => (
+            <path key={`t${i}`} d={d} fill="none" stroke="rgb(56 189 248 / 0.7)" strokeWidth="1"
+              vectorEffect="non-scaling-stroke" data-testid="temp-line" />
           ))}
           {expected !== undefined && (
             <line x1="0" x2={W} y1={y(expected)} y2={y(expected)} stroke="rgb(161 161 170 / 0.5)"
@@ -74,8 +87,13 @@ export function Sparkline({ points, expected, compact }: { points: HistoryPoint[
           ))}
       </div>
       {!compact && <div className="mt-0.5 flex justify-between text-[10px] text-zinc-500">
-        <span>{spanH >= 1 ? `${spanH.toFixed(1)} h` : `${Math.round(spanH * 60)} min`} ago</span>
-        <span>min {fmtHash(Math.min(...values))} · max {fmtHash(Math.max(...values))}</span>
+        <span>{spanH >= 48 ? `${(spanH / 24).toFixed(1)} d` : spanH >= 1 ? `${spanH.toFixed(1)} h` : `${Math.round(spanH * 60)} min`} ago</span>
+        <span>
+          min {fmtHash(Math.min(...values))} · max {fmtHash(Math.max(...values))}
+          {temps.length > 1 && (
+            <span className="text-sky-400/80"> · ASIC {Math.min(...temps).toFixed(0)}–{Math.max(...temps).toFixed(0)} °C</span>
+          )}
+        </span>
         <span>now</span>
       </div>}
     </div>

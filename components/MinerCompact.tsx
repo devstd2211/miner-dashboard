@@ -1,4 +1,4 @@
-import type { MinerView, NonceEvent } from "@/lib/types";
+import { RECENT_MIN, type MinerView, type NonceEvent } from "@/lib/types";
 import { fmt, fmtDiff, fmtDiffShort, fmtDuration, fmtHash, jPerTh } from "@/lib/format";
 import { ASIC_TEMP_MAX, hashratePct, minerIssues, rejectPct, REJECT_PCT_MAX } from "@/lib/health";
 import { LiveDiff } from "./LiveDiff";
@@ -46,6 +46,7 @@ export function MinerCompact({ m, now, feed, onExpand, rank, flash, color }: {
           <div className="truncate text-[11px] text-zinc-500">
             <a href={`http://${m.ip}`} target="_blank" rel="noreferrer" className="hover:text-zinc-300">{m.ip}</a>
             {s && ` · ${s.asicCount ?? 1}× ${s.asicModel}`}
+            {s && <span title="Uptime"> · up {fmtDuration(s.uptimeSeconds)}</span>}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -90,8 +91,8 @@ export function MinerCompact({ m, now, feed, onExpand, rank, flash, color }: {
             <Mini label="Share diff" value={fmtDiffShort(s.poolDifficulty)} cls="font-semibold text-emerald-400" />
             <Mini label="Best ever" value={fmtDiff(s.bestDiff)} cls="font-semibold text-emerald-400" />
             <Mini label="Last nonce" value={m.online ? <LiveDiff events={feed} className="font-semibold" /> : "—"} />
+            <Mini label={`Best ${RECENT_MIN} min`} value={m.online ? fmtDiffShort(m.recentBest) : "—"} />
             <Mini label="Best boot" value={fmtDiff(s.bestSessionDiff)} cls="text-emerald-400" />
-            <Mini label="Uptime" value={fmtDuration(s.uptimeSeconds)} cls="text-zinc-400" />
           </div>
         </>
       )}

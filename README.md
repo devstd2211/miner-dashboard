@@ -35,10 +35,11 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   - **Cards**: full cards; 3 columns for up to 3 miners, 4 columns for more (fewer on a narrow
     window, a card is never narrower than 440 px). Under the chart each card has three
     collapsed blocks: **parameters** (power, thermal, tuning, pool), **stats · chips** and
-    **live nonces**. Opening a block opens it on every card (remembered in the browser), and
-    each block starts on the same line in all cards of a row.
+    **live nonces**. Opening a block opens it on the cards of the same row (remembered in the
+    browser), and each block starts on the same line in all cards of a row.
   - **Compact**: small cards with hashrate, % of expected, chart, power, J/TH, ASIC temperature,
-    shares, share difficulty, last nonce, best share since boot and ever, uptime; "more" opens the full card in place. This is the
+    shares, share difficulty, last nonce, best nonce of the last 10 minutes, best share since boot
+    and ever, uptime; "more" opens the full card in place. This is the
     default when there are more than 6 miners.
   - **Table**: one row per miner; click the name to open its full card under the row.
 - Leaderboard: miners are ordered by their best share since boot, the leader gets a 🏆 #1 badge,
@@ -46,7 +47,7 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   glows green for a few seconds.
 - Problems are flagged with an amber border and a "⚠" line (they don't change the order):
   pool disconnected, fallback pool, ASIC ≥ 70 °C, VRM ≥ 80 °C, 1 h hashrate below 85% of
-  expected, rejects above 1%, current above 90% of the max. Offline miners get a red border
+  expected, rejects above 1%, current above 98% of the max. Offline miners get a red border
   and are dimmed, their last known data marked as stale.
 - Summary: total hashrate, total power, overall J/TH, miners online, best difficulty
   (all-time and session).
@@ -56,18 +57,28 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   marking every miner in its own colour (a square next to its name on the cards, in the table
   and in the bar's legend): a filled dot is the best share ever, a ring the best since boot
   (with more than 6 miners only the leader's ring), a thin tick the newest nonce, hopping
-  along the bar as new nonces come in. A 👑 crown sits over the leader's ring.
+  along the bar as new nonces come in. A 👑 crown sits over the leader's ring. The bar starts
+  two orders of magnitude below the lowest share difficulty, so nonces that were found but
+  not sent to the pool spread out in the darker zone left of the "share" line.
+- Best share log at the bottom of the page: every new best share since boot (skipping the first
+  10 minutes after a miner reboots), 🏆 when it also beat the all-time best. Kept in
+  `data/best-shares.json`, so records survive miner reboots.
+- Notifications: 🔔 in the header turns on browser notifications (while the tab is open) for
+  new problems and new best shares. Without a browser, the server can send the same alerts to
+  Telegram, see [Data and configuration](#data-and-configuration); a problem has to last a
+  minute before it is reported, and its recovery is reported too.
 - A card per miner (name, hashrate and chart always visible; the rest in collapsed blocks):
   - online/offline status (offline after 30 s without a response)
   - current and 1 h hashrate vs expected (`frequency × smallCoreCount × asicCount / 1000`)
-  - power, input voltage, current (highlighted above 90% of the max current), J/TH
+  - power, input voltage, current (highlighted above 98% of the max current), J/TH
   - ASIC/VRM temperature, fans
   - frequency, core voltage in mV (set / actual)
   - pool: host, connected, fallback in use, accepted/rejected shares and reject %, ping; the host links
     to the pool's stats page for the wallet in the stratum user (Braiins Solo:
     `solo.braiins.com/stats/<address>`, ckpool solo: `<host>/users/<address>`; other pools: no link)
   - difficulty of the newest nonce, live from the nonce feed (amber when it was sent to the
-    pool as a share); also in the compact cards and the table
+    pool as a share), and the best nonce of the last 10 minutes (every nonce counts, not only
+    the shares); both also in the compact cards and the table
   - best difficulty, uptime; hashes computed since boot (estimate: average hashrate × uptime)
     and, on AxeOS 2.x, the exact lifetime counter `totalHashes` (NerdQAxe does not report one)
   - link to the miner's own web UI (AxeOS / NerdQAxe), opens in a new tab
@@ -78,7 +89,9 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
     no mark: below the pool difficulty, not sent
   - shares since boot (accepted ↑ / rejected ↓) next to the hashrate
   - hashrate chart for the last 24 h (plain SVG); periods with no data (PC asleep, miner
-    offline) are shown as a grey "no data" band instead of a line across the gap
+    offline) are shown as a grey "no data" band instead of a line across the gap. **7d / 30d**
+    switch to the long history (15-minute averages kept in `data/history-long.json`) with the
+    ASIC temperature as a second, blue line
   - per-chip table (NerdQAxe firmware): hashrate and error % per chip, colored
     green (0%), yellow (≤ 0.5%) or red (> 0.5%)
 
@@ -108,7 +121,8 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   websocket slots and the dashboard holds one per miner.
 - **API:** `GET /api/miners` returns the current state plus history averaged into at most
   288 time slots (5 minutes each for a full day, raw 10 s polls for the first ~48 min); slots
-  with no samples are left out, so gaps stay gaps. `POST /api/rescan` runs a scan and waits for it to finish (about 10 s per /24).
+  with no samples are left out, so gaps stay gaps, the 10-minute best nonce and the best share
+  log. `GET /api/history?id=<miner id>&days=7` returns the long history. `POST /api/rescan` runs a scan and waits for it to finish (about 10 s per /24).
 - **Units.** The two endpoints disagree on units (e.g. voltage in mV vs V, current in mA vs A),
   and stock Bitaxe reports ASIC core-rail current rather than input current. Everything is
   normalized in `lib/miner-api.ts`.
@@ -153,6 +167,9 @@ What they check:
 - Leaderboard: when a miner's best share since boot becomes the highest, its card moves to the
   first place and glows.
 - Demo: `?demo=12` shows 12 made-up miners and makes no API requests.
+- API: every online miner has a 10-minute best nonce; the best share log and `/api/history` answer.
+- Demo: card blocks open only for the cards in the same row (4 and 2 columns); the 10-minute
+  best, the share line, the best share log and the 7d chart with temperature work without API calls.
 
 A screenshot of the page is saved to `test-results/dashboard.png`. The expectations are written
 for the author's three miners: adjust them at the top of `tests/dashboard.spec.ts` for your setup.
@@ -209,8 +226,16 @@ node scripts/screenshots.mjs http://localhost:3100 15
 - `data/miners.json`: the discovered miners (`id`, `ip`, `hostname`, `mac`, `type`, `lastSeen`).
   Delete it to force a full scan on the next start. To forget a miner you've retired, remove
   it from this file while the server is stopped.
+- `data/best-shares.json`: the best share log (last 500 records).
+- `data/history-long.json`: 15-minute hashrate and ASIC temperature averages, last 30 days.
 - `SCAN_SUBNETS`: optional environment variable for when subnet detection gets it wrong.
   Example: `SCAN_SUBNETS=192.168.68,192.168.1`.
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`: optional, send alerts (miner offline, pool down,
+  too hot, low hashrate, rejects, high current, and their recovery; new best shares) to a
+  Telegram chat. Create a bot with @BotFather, send it any message, read your chat id from
+  `https://api.telegram.org/bot<token>/getUpdates`, then put both in `.env.local` next to
+  `package.json` and restart the dashboard (`scripts\update.ps1`). Without them alerts only go
+  to `logs\server.log`.
 
 ## Project layout
 
@@ -221,12 +246,15 @@ lib/store.ts       state, miners.json, 24 h history, background poller
 lib/history.ts     history downsampling and gap detection for the chart
 lib/share-feed.ts  websocket to each miner's log, nonce/share parsing for the live feed
 lib/health.ts      problem flags (thresholds) and the leaderboard order
+lib/records.ts     best share log (data/best-shares.json)
+lib/long-history.ts 30-day history, 15-minute averages (data/history-long.json)
+lib/alerts.ts      problem / recovery / best share alerts: server log and Telegram
 lib/demo.ts        made-up miners for the demo mode (?demo=N)
 instrumentation.ts starts the poller when the server starts
-app/api/*          GET /api/miners, POST /api/rescan, GET /api/feed (SSE)
+app/api/*          GET /api/miners, POST /api/rescan, GET /api/feed (SSE), GET /api/history
 app/page.tsx       UI: summary, view switch, leaderboard
 components/        full card (MinerCard), compact card, table, rank badge, sparkline,
-                   difficulty bar, nonce feed
+                   difficulty bar, nonce feed, best share log, browser notifications
 scripts/           Windows autostart, README screenshots (screenshots.mjs)
 tests/             Playwright e2e tests
 ```

@@ -10,7 +10,7 @@
 // matched by nonce in either order. If a firmware changes this format the feed just stays
 // empty; nothing else on the dashboard depends on it.
 
-import type { NonceEvent } from "./types";
+import { RECENT_MIN, type NonceEvent } from "./types";
 
 const KEEP_PER_ASIC = 4; // newest nonces kept per chip
 const KEEP_EVENTS = 64; // per miner in total (8 chips × 4 plus slack), newest first
@@ -25,6 +25,7 @@ interface Feed {
   events: NonceEvent[];
   submits: Map<number, string>; // stratum request id -> nonce
   lastMsgAt: number;
+  recent: { minute: number; max: number }[]; // best nonce per minute, last RECENT_MIN minutes
   retry?: NodeJS.Timeout;
   closed: boolean;
 }
@@ -82,6 +83,7 @@ export function parseLine(f: Pick<Feed, "events" | "submits">, raw: string): boo
     const asic = line.match(RE_ASIC);
     if (asic) ev.asic = parseInt(asic[1], 10);
     trimPerAsic(f);
+    if ("recent" in f) noteRecent(f as Feed, ev.diff);
     return true;
   }
   if (line.includes("mining.submit")) {
@@ -110,6 +112,23 @@ export function parseLine(f: Pick<Feed, "events" | "submits">, raw: string): boo
     return true;
   }
   return false;
+}
+
+/** Per-minute maximum: every nonce counts, not only the few kept in `events`. */
+function noteRecent(f: Feed, diff: number) {
+  const minute = Math.floor(Date.now() / 60_000);
+  const last = f.recent[f.recent.length - 1];
+  if (last?.minute === minute) last.max = Math.max(last.max, diff);
+  else f.recent.push({ minute, max: diff });
+  while (f.recent.length && f.recent[0].minute <= minute - RECENT_MIN) f.recent.shift();
+}
+
+/** Best nonce difficulty this miner found in the last RECENT_MIN minutes. */
+export function recentBest(minerId: string): number | undefined {
+  const f: Feed | undefined = state.feeds.get(minerId);
+  const from = Math.floor(Date.now() / 60_000) - RECENT_MIN;
+  const vals = (f?.recent ?? []).filter((r) => r.minute > from).map((r) => r.max);
+  return vals.length ? Math.max(...vals) : undefined;
 }
 
 function emit(minerId: string, f: Feed) {
@@ -149,7 +168,7 @@ export function ensureFeed(minerId: string, ip: string) {
     f = undefined;
   }
   if (!f) {
-    f = { ip, events: [], submits: new Map(), lastMsgAt: 0, closed: false };
+    f = { ip, events: [], submits: new Map(), lastMsgAt: 0, recent: [], closed: false };
     state.feeds.set(minerId, f);
     connect(minerId, f);
   } else if (f.ws && Date.now() - f.lastMsgAt > IDLE_TIMEOUT_MS) {

@@ -1,9 +1,9 @@
 import { Fragment } from "react";
-import type { MinerView, NonceEvent } from "@/lib/types";
+import { RECENT_MIN, type MinerView, type NonceEvent } from "@/lib/types";
 import { fmt, fmtDiff, fmtDiffShort, fmtDuration, fmtHash, jPerTh } from "@/lib/format";
 import { ASIC_TEMP_MAX, hashratePct, minerIssues, rejectPct, REJECT_PCT_MAX, VR_TEMP_MAX } from "@/lib/health";
 import { LiveDiff } from "./LiveDiff";
-import { MinerCard, pctColor } from "./MinerCard";
+import { MinerCard, pctColor, type LoadHistory } from "./MinerCard";
 import { MinerSwatch } from "./MinerSwatch";
 import { RankBadge } from "./RankBadge";
 
@@ -12,7 +12,7 @@ const TD = "px-2 py-1.5 whitespace-nowrap tabular-nums";
 const hot = (v: number | undefined, max: number) => ((v ?? 0) >= max ? "font-semibold text-red-400" : "");
 
 /** One row per miner; clicking the name opens the full card under the row. */
-export function MinerTable({ miners, now, feeds, expanded, toggle, ranks, colors }: {
+export function MinerTable({ miners, now, feeds, expanded, toggle, ranks, colors, loadHistory }: {
   miners: MinerView[];
   colors: Record<string, string>;
   ranks: Record<string, number>;
@@ -20,8 +20,9 @@ export function MinerTable({ miners, now, feeds, expanded, toggle, ranks, colors
   feeds: Record<string, NonceEvent[]>;
   expanded: Set<string>;
   toggle: (id: string) => void;
+  loadHistory?: LoadHistory;
 }) {
-  const cols = 14;
+  const cols = 15;
   return (
     <div className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/60">
       <table className="w-full text-sm" data-testid="miner-table">
@@ -38,6 +39,7 @@ export function MinerTable({ miners, now, feeds, expanded, toggle, ranks, colors
             <th className={TH}>Shares ↑ / ↓</th>
             <th className={TH}>Share diff</th>
             <th className={TH} title="Difficulty of the newest nonce (live); amber = it was a share">Last nonce</th>
+            <th className={TH} title={`Best nonce of the last ${RECENT_MIN} minutes (live)`}>Best {RECENT_MIN} min</th>
             <th className={TH}>Best boot</th>
             <th className={TH}>Best ever</th>
             <th className={TH}>Uptime</th>
@@ -86,6 +88,7 @@ export function MinerTable({ miners, now, feeds, expanded, toggle, ranks, colors
                       </td>
                       <td className={`${TD} font-semibold text-emerald-400`}>{fmtDiffShort(s.poolDifficulty)}</td>
                       <td className={TD}>{m.online ? <LiveDiff events={feeds[m.id]} /> : "—"}</td>
+                      <td className={TD}>{m.online ? fmtDiffShort(m.recentBest) : "—"}</td>
                       <td className={`${TD} text-emerald-400`}>{fmtDiff(s.bestSessionDiff)}</td>
                       <td className={`${TD} font-semibold text-emerald-400`}>{fmtDiff(s.bestDiff)}</td>
                       <td className={`${TD} text-zinc-400`}>{fmtDuration(s.uptimeSeconds)}</td>
@@ -98,7 +101,7 @@ export function MinerTable({ miners, now, feeds, expanded, toggle, ranks, colors
                   <tr>
                     <td colSpan={cols} className="p-2">
                       <div className="max-w-[720px]">
-                        <MinerCard m={m} now={now} feed={feeds[m.id]} rank={ranks[m.id]} color={colors[m.id]} />
+                        <MinerCard m={m} now={now} feed={feeds[m.id]} rank={ranks[m.id]} color={colors[m.id]} loadHistory={loadHistory} />
                       </div>
                     </td>
                   </tr>
