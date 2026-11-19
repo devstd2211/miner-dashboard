@@ -2,6 +2,7 @@
 
 A local dashboard for home Bitcoin miners running AxeOS (Bitaxe) and NerdQAxe firmware.
 Next.js (App Router), no database, no auth, no Docker. Read-only: it never changes miner settings.
+Runs on a Windows PC or 24/7 on an [old Android phone](#running-on-an-old-android-phone).
 
 Screenshots show 10 made-up miners from the [demo mode](#demo-mode).
 
@@ -211,6 +212,60 @@ stops the task and the server (one UAC prompt if the server runs in session 0), 
 powershell -ExecutionPolicy Bypass -File scripts\update.ps1
 ```
 
+## Running on an old Android phone
+
+A PC that is switched off doesn't watch the miners. A spare Android phone can run the dashboard
+24/7 instead: it stays on the Wi-Fi and needs no root. The dashboard runs in
+[Termux](https://termux.dev) as a standalone Node server (about 75 MB of RAM). Tested on a Galaxy
+A6 2018 (Android 10, 32-bit userspace). After a reboot it starts by itself within ~15 s.
+
+What you need: a Windows PC with this repo and `npm install` done, Android platform-tools
+(`adb.exe` on PATH, or pass `-Adb <path>`), the phone on the same Wi-Fi as the miners, and USB
+debugging on (Settings → About phone → tap "Build number" 7 times → Developer options → USB
+debugging). Connect the phone by USB and allow this PC on its screen.
+
+**1. Prepare the phone (once).** Downloads Termux and Termux:Boot from their GitHub releases
+(APK for the phone's CPU, SHA-256 checked), installs them, opens them once, installs Node.js in
+Termux and excludes Termux from battery optimisation:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup-android.ps1
+```
+
+If Play Protect refuses the APKs (`INSTALL_FAILED_VERIFICATION_FAILURE`), run it again and tap
+"Install anyway" on the phone, or add `-AllowUnverifiedInstall`: verification of USB installs is
+turned off just for these two APKs and turned back on right after. Don't use the Google Play
+versions of Termux: they are outdated and don't allow `adb shell run-as com.termux`, which the
+scripts use to work inside Termux over USB.
+
+**2. Install the dashboard.** Builds a standalone server on the PC (`NEXT_STANDALONE=1`, into
+`.next-standalone/`, the PC's own `.next` is not touched), copies it to the phone, sets up the
+autostart and starts it:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\deploy-android.ps1 -CopyData
+```
+
+`-CopyData` also moves the PC's `data/` (miner list, history, best shares) to the phone. It
+overwrites the phone's data, so use it only for the first install or when you move back on
+purpose, and only while the PC dashboard is stopped. To update the phone after a code change, run
+the same script without `-CopyData`.
+
+**3. Stop the PC dashboard** (`scripts\uninstall-autostart.ps1`). Don't run both at once: the
+ESP32 miners accept only a few log websockets.
+
+Open `http://<phone IP>:3100` from any device on the network (the script prints the address).
+Give the phone a fixed IP in the router so the address does not change. The phone stays on the
+charger.
+
+On the phone everything lives in `~/miner-dashboard`: `app/` (the server), `data/`,
+`logs/server.log` (rotated at 5 MB), `start.sh` (wake lock, restart loop, port 3100) and
+`stop.sh`. Termux:Boot runs `~/.termux/boot/miner-dashboard` after a reboot. Settings such as
+`SCAN_SUBNETS` or `TELEGRAM_BOT_TOKEN` go to `~/miner-dashboard/env.sh` (`export NAME=value`
+lines), then restart: `sh ~/miner-dashboard/stop.sh; sh ~/miner-dashboard/start.sh &` in Termux,
+or simply reboot the phone. Log from the PC:
+`adb shell run-as com.termux tail -50 files/home/miner-dashboard/logs/server.log`.
+
 ## Demo mode
 
 Open `http://localhost:3100/?demo=10` to see 10 made-up miners (any number up to 60) instead of
@@ -264,7 +319,8 @@ app/api/*          GET /api/miners, POST /api/rescan, GET /api/feed (SSE), GET /
 app/page.tsx       UI: summary, view switch, leaderboard
 components/        full card (MinerCard), compact card, table, rank badge, sparkline,
                    difficulty bar, nonce feed, best share log, browser notifications
-scripts/           Windows autostart, README screenshots (screenshots.mjs)
+scripts/           Windows autostart, Android phone (setup-android.ps1, deploy-android.ps1, android/),
+                   README screenshots (screenshots.mjs)
 tests/             Playwright e2e tests
 ```
 

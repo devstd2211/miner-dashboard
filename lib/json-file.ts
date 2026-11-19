@@ -7,7 +7,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 // DATA_DIR moves the data folder (e.g. a dev server next to the running dashboard).
-export const dataFile = (name: string) => path.join(process.env.DATA_DIR || path.join(process.cwd(), "data"), name);
+export const dataFile = (name: string) => path.join(process.env.DATA_DIR || path.join(/* turbopackIgnore: true */ process.cwd(), "data"), name);
 
 export async function readJsonFile<T>(file: string): Promise<T | undefined> {
   try {
