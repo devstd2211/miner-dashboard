@@ -273,10 +273,12 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
           <div className="text-xs text-zinc-500">
             1h {fmtHash(s.hashRate1h)} · expected {fmtHash(s.expectedHashRate)}
           </div>
-          <div className="mt-0.5 text-xs tabular-nums text-zinc-400" title="shares since boot: accepted / rejected">
+          <div className="mt-0.5 text-xs tabular-nums text-zinc-400" title="shares since boot: accepted · rejected (% of all shares)">
             shares <span className="text-emerald-400">↑ {s.pool.accepted.toLocaleString("en-US")}</span>
             {" · "}
-            <span className={s.pool.rejected > 0 ? "text-red-400" : "text-zinc-400"}>↓ {s.pool.rejected.toLocaleString("en-US")}</span>
+            <span className={s.pool.rejected > 0 ? `text-red-400 ${rejPct > REJECT_PCT_MAX ? "font-semibold" : ""}` : "text-zinc-400"}>
+              ↓ {s.pool.rejected.toLocaleString("en-US")} ({rejPct.toFixed(2)}%)
+            </span>
           </div>
         </div>
         <div className="text-right tabular-nums">
