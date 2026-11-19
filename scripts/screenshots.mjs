@@ -17,7 +17,9 @@ for (const view of ["full", "compact", "table"]) {
   await page.getByText("demo data").waitFor();
   const rows = view === "table" ? page.locator('[data-testid="miner-table"] > tbody > tr') : page.getByRole("heading", { level: 2 });
   await rows.nth(count - 1).waitFor();
-  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" }); // dev-mode badge
+  // Dev-mode badge; the newest-nonce fade-in (demo feeds are regenerated on every update, so the
+  // first cell would always be caught half-transparent).
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; } .nonce-in { animation: none !important; }" });
   // Parameters, stats · chips and live nonces start collapsed: open them for the picture.
   for (const name of ["parameters ▸", /^stats( · chips)? ▸$/, "live nonces ▸"]) {
     const closed = page.getByRole("button", { name });
@@ -25,7 +27,8 @@ for (const view of ["full", "compact", "table"]) {
   }
   await page.waitForTimeout(500);
   const file = `${docs}${view === "full" ? "cards" : view}.png`;
-  await page.screenshot({ path: file, fullPage: true });
+  // Finished animations: the newest nonce fades in, and demo nonces arrive all the time.
+  await page.screenshot({ path: file, fullPage: true, animations: "disabled" });
   console.log("saved", file);
   await page.close();
 }
