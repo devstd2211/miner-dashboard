@@ -85,7 +85,8 @@ function errColor(errPct: number) {
 
 function ChipTable({ chips }: { chips: ChipStat[] }) {
   return (
-    <Section title="Chips">
+    // No "Chips" heading: the fold is titled "stats · chips" and the table has its own header.
+    <div>
       <table className="w-full text-xs tabular-nums">
         <thead className="text-zinc-500">
           <tr>
@@ -107,7 +108,7 @@ function ChipTable({ chips }: { chips: ChipStat[] }) {
           })}
         </tbody>
       </table>
-    </Section>
+    </div>
   );
 }
 
@@ -347,7 +348,7 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
 
       <Fold title={s.chips?.length ? "stats · chips" : "stats"} open={open.stats} onToggle={() => toggle("stats")} aligned={alignRows}>
       <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-        <Section title="Stats">
+        <div>
           <Stat
             label="Share difficulty (pool)"
             value={fmtDiffShort(s.poolDifficulty)}
@@ -369,7 +370,7 @@ export function MinerCard({ m, now, feed, onCollapse, rank, flash, color, alignR
           <Stat label="Uptime" value={fmtDuration(s.uptimeSeconds)} />
           <Stat label="Hashes (since boot)" value={hashesSinceBoot ? `≈ ${fmtHashes(hashesSinceBoot)}` : "—"} />
           {s.totalHashes !== undefined && <Stat label="Hashes (lifetime)" value={fmtHashes(s.totalHashes)} />}
-        </Section>
+        </div>
 
         {s.chips && s.chips.length > 0 && <ChipTable chips={s.chips} />}
       </div>
