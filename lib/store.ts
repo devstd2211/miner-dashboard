@@ -7,7 +7,7 @@ import { readMiner } from "./miner-api";
 import { detectSubnets, scanNetwork } from "./scanner";
 import { downsample, HISTORY_WINDOW_MS } from "./history";
 import { dataFile, readJsonFile, writeJsonFile } from "./json-file";
-import { ensureFeed, recentBest } from "./share-feed";
+import { ensureFeed, loadFeeds, recentBest } from "./share-feed";
 import { getRecords, loadRecords, noteBest } from "./records";
 import { loadLongHistory, noteLong, saveLongHistory } from "./long-history";
 import { alertRecord, checkAlerts } from "./alerts";
@@ -166,7 +166,7 @@ export function ensureStarted() {
   if (store.started) return;
   store.started = true;
   (async () => {
-    await Promise.all([loadRecords(), loadLongHistory()]);
+    await Promise.all([loadRecords(), loadLongHistory(), loadFeeds()]);
     const hasFile = await load();
     if (hasFile) await pollAll();
     else await rescan();

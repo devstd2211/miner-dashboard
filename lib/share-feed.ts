@@ -9,13 +9,21 @@
 // AxeOS logs the submit *before* the asic_result line of the same nonce, so events are
 // matched by nonce in either order. If a firmware changes this format the feed just stays
 // empty; nothing else on the dashboard depends on it.
+//
+// The newest nonces and the per-minute bests are saved to data/feed.json (at most every
+// SAVE_MS), so a restart of the dashboard does not empty the feed and the 10-minute best.
 
+import { dataFile, readJsonFile, writeJsonFile } from "./json-file";
 import { RECENT_MIN, type NonceEvent } from "./types";
 
 const KEEP_PER_ASIC = 4; // newest nonces kept per chip
 const KEEP_EVENTS = 64; // per miner in total (8 chips × 4 plus slack), newest first
 const RECONNECT_MS = 10_000;
 const IDLE_TIMEOUT_MS = 60_000; // no log lines this long -> reconnect
+const SAVE_MS = 30_000;
+const FILE = dataFile("feed.json");
+
+type Saved = Record<string, { events: NonceEvent[]; recent: Feed["recent"] }>;
 
 type Listener = (minerId: string, events: NonceEvent[]) => void;
 
@@ -30,8 +38,30 @@ interface Feed {
   closed: boolean;
 }
 
-const g = globalThis as unknown as { __shareFeed?: { feeds: Map<string, Feed>; listeners: Set<Listener> } };
-const state = (g.__shareFeed ??= { feeds: new Map(), listeners: new Set() });
+interface State {
+  feeds: Map<string, Feed>;
+  listeners: Set<Listener>;
+  saved: Saved; // from data/feed.json; an entry is used once, when that miner's feed starts
+  dirty: boolean;
+  saver?: NodeJS.Timeout;
+}
+const g = globalThis as unknown as { __shareFeed?: State };
+const state: State = (g.__shareFeed ??= { feeds: new Map(), listeners: new Set(), saved: {}, dirty: false });
+
+/** Read data/feed.json once at startup; feeds take their part when they are created. */
+export async function loadFeeds() {
+  const saved = await readJsonFile<Saved>(FILE);
+  if (saved && typeof saved === "object") state.saved = saved;
+  state.saver ??= setInterval(() => {
+    if (!state.dirty) return;
+    state.dirty = false;
+    writeJsonFile(FILE, () => {
+      const out: Saved = { ...state.saved }; // miners without a feed right now keep their data
+      state.feeds.forEach((f, id) => (out[id] = { events: f.events, recent: f.recent }));
+      return out;
+    }).catch((e) => console.error("[feed] save failed", e));
+  }, SAVE_MS);
+}
 
 // eslint-disable-next-line no-control-regex
 const ANSI = /\x1b\[[0-9;]*m/g;
@@ -154,7 +184,10 @@ function connect(minerId: string, f: Feed) {
     f.lastMsgAt = Date.now();
     let changed = false;
     for (const line of String(e.data).split("\n")) changed = parseLine(f, line) || changed;
-    if (changed) emit(minerId, f);
+    if (changed) {
+      state.dirty = true;
+      emit(minerId, f);
+    }
   };
   ws.onerror = retry;
   ws.onclose = retry;
@@ -168,7 +201,17 @@ export function ensureFeed(minerId: string, ip: string) {
     f = undefined;
   }
   if (!f) {
-    f = { ip, events: [], submits: new Map(), lastMsgAt: 0, recent: [], closed: false };
+    // Continue from the saved feed; minutes older than the window are dropped by recentBest.
+    const saved = state.saved[minerId];
+    delete state.saved[minerId];
+    f = {
+      ip,
+      events: Array.isArray(saved?.events) ? saved.events : [],
+      submits: new Map(),
+      lastMsgAt: 0,
+      recent: Array.isArray(saved?.recent) ? saved.recent : [],
+      closed: false,
+    };
     state.feeds.set(minerId, f);
     connect(minerId, f);
   } else if (f.ws && Date.now() - f.lastMsgAt > IDLE_TIMEOUT_MS) {

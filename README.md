@@ -289,6 +289,8 @@ node scripts/screenshots.mjs http://localhost:3100 15
   best shares seen of every miner.
 - `data/history-24h.json`: the 24 h chart, 1-minute averages.
 - `data/history-long.json`: 15-minute hashrate and ASIC temperature averages, last 30 days.
+- `data/feed.json`: the newest live nonces and the per-minute bests behind the 10-minute best,
+  saved every 30 s, so a restart does not empty them.
 - `SCAN_SUBNETS`: optional environment variable for when subnet detection gets it wrong.
   Example: `SCAN_SUBNETS=192.168.68,192.168.1`.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`: optional, send alerts (miner offline, pool down,
@@ -307,7 +309,7 @@ lib/miner-api.ts   miner HTTP requests and JSON normalization (GH/s, W, V, A, °
 lib/scanner.ts     subnet detection and LAN scan
 lib/store.ts       state, miners.json, 24 h history, background poller
 lib/history.ts     history downsampling and gap detection for the chart
-lib/share-feed.ts  websocket to each miner's log, nonce/share parsing for the live feed
+lib/share-feed.ts  websocket to each miner's log, nonce/share parsing for the live feed (data/feed.json)
 lib/health.ts      problem flags (thresholds) and the leaderboard order
 lib/records.ts     best share log (data/best-shares.json, best-last.json)
 lib/json-file.ts   data/*.json reads and queued atomic writes
