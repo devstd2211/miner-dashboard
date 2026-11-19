@@ -67,6 +67,8 @@ and a Bitaxe Gamma 601 on AxeOS v2.15.
   are saved too (`data/best-last.json`): a record found while the dashboard was stopped is
   logged when it starts again, marked "while off" (if the miner rebooted meanwhile, only a new
   all-time best can be told apart).
+- Light and dark theme: ☀/☾ in the header. Without a choice the page follows the system
+  setting; the choice is remembered in the browser.
 - Notifications: 🔔 in the header turns on browser notifications (while the tab is open) for
   new problems and new best shares. Without a browser, the server can send the same alerts to
   Telegram, see [Data and configuration](#data-and-configuration); a problem has to last a

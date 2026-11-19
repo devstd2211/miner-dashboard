@@ -259,3 +259,21 @@ test("Demo: 10-minute best, share line, best-share log and 7d chart without API 
   await expect(page.getByTestId("best-records").locator("tbody tr").first()).toBeVisible();
   expect(apiCalls).toBe(0);
 });
+
+test("Demo: theme follows the system, the ☀/☾ button switches it and the choice is remembered", async ({ browser }) => {
+  const ctx = await browser.newContext({ colorScheme: "dark" });
+  const page = await ctx.newPage();
+  const theme = () => page.evaluate(() => document.documentElement.dataset.theme);
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  await page.goto("/?demo=3");
+  expect(await theme()).toBe("dark");
+  const darkBg = await bg();
+  await page.getByTestId("theme-toggle").click();
+  expect(await theme()).toBe("light");
+  expect(await bg()).not.toBe(darkBg);
+  await page.reload();
+  expect(await theme()).toBe("light"); // saved choice beats the dark system setting
+  await page.getByTestId("theme-toggle").click();
+  expect(await theme()).toBe("dark");
+  await ctx.close();
+});

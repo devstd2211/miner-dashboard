@@ -33,7 +33,7 @@ export function DiffProgress({ from, to, share, marks }: { from: number; to: num
   // Many miners: draw only the all-time best, as smaller dots (the per-miner "since boot"
   // values stay in the legend below).
   const dense = marks.length > 6;
-  const colorOf = (m: DiffMark) => m.color ?? "#f4f4f5";
+  const colorOf = (m: DiffMark) => m.color ?? "var(--color-zinc-100)";
   const leader = marks.find((m) => m.leader && (m.session ?? m.best));
   const crownAt = leader ? (leader.session ?? leader.best)! : undefined;
 
